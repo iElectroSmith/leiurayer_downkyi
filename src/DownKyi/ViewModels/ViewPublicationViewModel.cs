@@ -1,5 +1,4 @@
 ﻿using DownKyi.Core.BiliApi.VideoStream;
-using DownKyi.Core.Storage;
 using DownKyi.Core.Utils;
 using DownKyi.CustomControl;
 using DownKyi.Events;
@@ -14,14 +13,12 @@ using Prism.Events;
 using Prism.Regions;
 using Prism.Services.Dialogs;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Media.Imaging;
 
 namespace DownKyi.ViewModels
 {
@@ -34,7 +31,7 @@ namespace DownKyi.ViewModels
         private long mid = -1;
 
         // 每页视频数量，暂时在此写死，以后在设置中增加选项
-        private readonly int VideoNumberInPage = 30;
+        private readonly int VideoNumberInPage = 50;
 
         #region 页面属性申明
 
@@ -233,42 +230,36 @@ namespace DownKyi.ViewModels
         /// <param name="parameter"></param>
         private void ExecuteSelectAllCommand(object parameter)
         {
-            if (IsSelectAll)
+            isBatchUpdatingSelection = true;
+            try
             {
+                bool target = IsSelectAll;
                 foreach (var item in Medias)
                 {
-                    item.IsSelected = true;
+                    // 全选时跳过已下载项（避免重复下载）；取消全选时仍清掉所有勾选
+                    if (target && item.IsDownloaded) { continue; }
+                    item.IsSelected = target;
                 }
             }
-            else
+            finally
             {
-                foreach (var item in Medias)
-                {
-                    item.IsSelected = false;
-                }
+                isBatchUpdatingSelection = false;
             }
         }
 
-        // 列表选择事件
-        private DelegateCommand<object> mediasCommand;
-        public DelegateCommand<object> MediasCommand => mediasCommand ?? (mediasCommand = new DelegateCommand<object>(ExecuteMediasCommand));
+        // 批量更新选中状态时，避免逐项 PropertyChanged 回写 IsSelectAll
+        private bool isBatchUpdatingSelection;
 
         /// <summary>
-        /// 列表选择事件
+        /// 单项 IsSelected 变化时，根据"全部未下载项是否都已选"重新计算 IsSelectAll
         /// </summary>
-        /// <param name="parameter"></param>
-        private void ExecuteMediasCommand(object parameter)
+        private void OnMediaPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (!(parameter is IList selectedMedia)) { return; }
+            if (isBatchUpdatingSelection) { return; }
+            if (e.PropertyName != nameof(PublicationMedia.IsSelected)) { return; }
 
-            if (selectedMedia.Count == Medias.Count)
-            {
-                IsSelectAll = true;
-            }
-            else
-            {
-                IsSelectAll = false;
-            }
+            var selectable = Medias.Where(m => !m.IsDownloaded).ToList();
+            IsSelectAll = selectable.Count > 0 && selectable.All(m => m.IsSelected);
         }
 
         // 添加选中项到下载列表事件
@@ -402,26 +393,18 @@ namespace DownKyi.ViewModels
                     return;
                 }
 
+                int indexBase = (current - 1) * VideoNumberInPage;
+                int offset = 0;
+
+                // 已下载视频的 Bvid 集合，用于在投稿列表中标记"已下载"
+                var downloadedBvids = new HashSet<string>(
+                    App.DownloadedList?
+                        .Select(d => d.DownloadBase?.Bvid)
+                        .Where(b => !string.IsNullOrEmpty(b))
+                        ?? Enumerable.Empty<string>());
+
                 foreach (var video in videos)
                 {
-                    // 查询、保存封面
-                    string coverUrl = video.Pic;
-                    BitmapImage cover;
-                    if (coverUrl == null || coverUrl == "")
-                    {
-                        cover = null; // new BitmapImage(new Uri($"pack://application:,,,/Resources/video-placeholder.png"));
-                    }
-                    else
-                    {
-                        if (!coverUrl.ToLower().StartsWith("http"))
-                        {
-                            coverUrl = $"https:{video.Pic}";
-                        }
-
-                        StorageCover storageCover = new StorageCover();
-                        cover = storageCover.GetCoverThumbnail(video.Aid, video.Bvid, -1, coverUrl, 200, 125);
-                    }
-
                     // 播放数
                     string play = string.Empty;
                     if (video.Play > 0)
@@ -437,18 +420,25 @@ namespace DownKyi.ViewModels
                     DateTime dateCTime = startTime.AddSeconds(video.Created);
                     string ctime = dateCTime.ToString("yyyy-MM-dd");
 
+                    int displayIndex = indexBase + offset + 1;
+                    offset++;
+
+                    bool isDownloaded = !string.IsNullOrEmpty(video.Bvid) && downloadedBvids.Contains(video.Bvid);
+
                     App.PropertyChangeAsync(new Action(() =>
                     {
                         PublicationMedia media = new PublicationMedia(eventAggregator)
                         {
+                            Index = displayIndex,
                             Avid = video.Aid,
                             Bvid = video.Bvid,
-                            Cover = cover ?? new BitmapImage(new Uri($"pack://application:,,,/Resources/video-placeholder.png")),
                             Duration = video.Length,
                             Title = video.Title,
                             PlayNumber = play,
-                            CreateTime = ctime
+                            CreateTime = ctime,
+                            IsDownloaded = isDownloaded
                         };
+                        media.PropertyChanged += OnMediaPropertyChanged;
                         medias.Add(media);
 
                         LoadingVisibility = Visibility.Collapsed;

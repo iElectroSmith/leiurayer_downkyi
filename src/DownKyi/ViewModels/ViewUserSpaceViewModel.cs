@@ -199,9 +199,13 @@ namespace DownKyi.ViewModels
         /// </summary>
         private void ExecuteBackSpace()
         {
+            // ParentView 为空时（导航链断裂或未正确传递 Parent 参数）回退到首页，
+            // 避免静默失败让用户卡在当前页
+            string target = string.IsNullOrEmpty(ParentView) ? ViewIndexViewModel.Tag : ParentView;
+
             NavigationParam parameter = new NavigationParam
             {
-                ViewName = ParentView,
+                ViewName = target,
                 ParentViewName = null,
                 Parameter = null
             };

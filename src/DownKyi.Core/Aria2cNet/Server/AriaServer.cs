@@ -27,17 +27,8 @@ namespace DownKyi.Core.Aria2cNet.Server
             // aria目录
             string ariaDir = Environment.CurrentDirectory + "\\aria\\";
             //string ariaDir = StorageManager.GetAriaDir();
-            // 会话文件
-#if DEBUG
-            string sessionFile = Path.Combine(ariaDir, "aira.session");
-
-#else
-            string sessionFile =Path.Combine(ariaDir, "aira.session.gz");
-#endif
             // 日志文件
             string logFile = Path.Combine(ariaDir, "aira.log");
-            // 自动保存会话文件的时间间隔
-            int saveSessionInterval = 30;
 
             // --enable-rpc --rpc-listen-all=true --rpc-allow-origin-all=true --continue=true
             await Task.Run(() =>
@@ -46,11 +37,6 @@ namespace DownKyi.Core.Aria2cNet.Server
                 if (!Directory.Exists(ariaDir))
                 {
                     Directory.CreateDirectory(ariaDir);
-                }
-                if (!File.Exists(sessionFile))
-                {
-                    var stream = File.Create(sessionFile);
-                    stream.Close();
                 }
                 if (!File.Exists(logFile))
                 {
@@ -91,8 +77,8 @@ namespace DownKyi.Core.Aria2cNet.Server
                     $"--check-certificate=false " + // 解决问题 SSL/TLS handshake failure
                     $"--rpc-listen-port={config.ListenPort} " +
                     $"--rpc-secret={config.Token} " +
-                    $"--input-file=\"{sessionFile}\" --save-session=\"{sessionFile}\" " +
-                    $"--save-session-interval={saveSessionInterval} " +
+                    // 不使用 aria2 的 session 文件：避免启动时自动加载已过期的 B站 CDN URL 触发 403；
+                    // DownKyi 自己用数据库管理任务，断点续传靠磁盘上的 .aria2 控制文件，不依赖 session。
                     $"--log=\"{logFile}\" --log-level={config.LogLevel.ToString("G").ToLower()} " + // log-level: 'debug' 'info' 'notice' 'warn' 'error'
                     $"--max-concurrent-downloads={config.MaxConcurrentDownloads} " + // 最大同时下载数(任务数)
                     $"--max-connection-per-server={config.MaxConnectionPerServer} " + // 同服务器连接数

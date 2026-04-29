@@ -1,17 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using DownKyi.ViewModels;
+using DownKyi.ViewModels.PageViewModels;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace DownKyi.Views
 {
@@ -23,6 +14,24 @@ namespace DownKyi.Views
         public ViewPublication()
         {
             InitializeComponent();
+        }
+
+        /// <summary>
+        /// 标题左键双击跳转视频详情。单击不再跳转，避免误触。
+        /// </summary>
+        private void OnTitleMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount != 2) { return; }
+
+            if (sender is FrameworkElement fe
+                && fe.DataContext is PublicationMedia media
+                && DataContext is ViewPublicationViewModel vm)
+            {
+                if (media.TitleCommand?.CanExecute(vm.PageName) == true)
+                {
+                    media.TitleCommand.Execute(vm.PageName);
+                }
+            }
         }
     }
 }

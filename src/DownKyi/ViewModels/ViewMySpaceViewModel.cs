@@ -305,9 +305,12 @@ namespace DownKyi.ViewModels
             // 结束任务
             tokenSource?.Cancel();
 
+            // ParentView 为空时回退到首页，避免静默失败
+            string target = string.IsNullOrEmpty(ParentView) ? ViewIndexViewModel.Tag : ParentView;
+
             NavigationParam parameter = new NavigationParam
             {
-                ViewName = ParentView,
+                ViewName = target,
                 ParentViewName = null,
                 Parameter = null
             };

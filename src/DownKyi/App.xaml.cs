@@ -1,4 +1,5 @@
 ﻿using DownKyi.Core.Settings;
+using DownKyi.Models;
 using DownKyi.Services.Download;
 using DownKyi.Utils;
 using DownKyi.ViewModels;
@@ -63,6 +64,23 @@ namespace DownKyi
             List<DownloadedItem> downloadedItems = downloadStorageService.GetDownloaded();
             DownloadingList.AddRange(downloadingItems);
             DownloadedList.AddRange(downloadedItems);
+
+            // 启动时不自动续传上次未完成的任务，统一标记为暂停由用户手动恢复，
+            // 避免 B 站 CDN 视频流 URL 过期造成的启动 403 弹窗
+            foreach (var item in DownloadingList)
+            {
+                var status = item.Downloading.DownloadStatus;
+                if (status == DownloadStatus.NOT_STARTED
+                    || status == DownloadStatus.WAIT_FOR_DOWNLOAD
+                    || status == DownloadStatus.DOWNLOADING
+                    || status == DownloadStatus.PAUSE_STARTED)
+                {
+                    var downloading = item.Downloading;
+                    downloading.DownloadStatus = DownloadStatus.PAUSE;
+                    // 重新赋值触发 Downloading setter，刷新按钮图标为"开始"
+                    item.Downloading = downloading;
+                }
+            }
 
             // 下载列表发生变化时执行的任务
             DownloadingList.CollectionChanged += new NotifyCollectionChangedEventHandler(async (object sender, NotifyCollectionChangedEventArgs e) =>
@@ -246,8 +264,8 @@ namespace DownKyi
             switch (finishedSort)
             {
                 case DownloadFinishedSort.DOWNLOAD:
-                    // 按下载先后排序
-                    list.Sort((x, y) => { return x.Downloaded.FinishedTimestamp.CompareTo(y.Downloaded.FinishedTimestamp); });
+                    // 按下载先后排序（最新下载的在前）
+                    list.Sort((x, y) => { return y.Downloaded.FinishedTimestamp.CompareTo(x.Downloaded.FinishedTimestamp); });
                     break;
                 case DownloadFinishedSort.NUMBER:
                     // 按序号排序

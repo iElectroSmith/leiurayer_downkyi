@@ -7,107 +7,108 @@
     xmlns:prism="http://prismlibrary.com/"
     prism:ViewModelLocator.AutoWireViewModel="True">
     <UserControl.Resources>
+        <!--  列宽统一定义，表头与行复用  -->
+        <GridLength x:Key="PublicationColCheck">36</GridLength>
+        <GridLength x:Key="PublicationColStatus">36</GridLength>
+        <GridLength x:Key="PublicationColIndex">60</GridLength>
+        <GridLength x:Key="PublicationColDuration">80</GridLength>
+        <GridLength x:Key="PublicationColPlay">90</GridLength>
+        <GridLength x:Key="PublicationColDate">110</GridLength>
+
         <Style x:Key="MediaListStyle" TargetType="{x:Type ListBoxItem}">
-            <Setter Property="IsSelected" Value="{Binding IsSelected}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type ListBoxItem}">
-                        <StackPanel
-                            Name="nameItemPanel"
-                            Margin="15,15,15,5"
-                            Cursor="Hand"
-                            Orientation="Vertical">
-                            <Border
-                                Name="nameCover"
-                                Width="190"
-                                Height="119"
-                                HorizontalAlignment="Center"
-                                CornerRadius="5">
-                                <Border.Background>
-                                    <!--  长宽比：1.6  -->
-                                    <ImageBrush ImageSource="{Binding Cover}" />
-                                </Border.Background>
-
-                                <Grid Width="190" Height="119">
-                                    <Image
-                                        Name="nameChecked"
-                                        Width="24"
-                                        Height="24"
-                                        Margin="0,10,10,0"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Top"
-                                        Source="/DownKyi;component/Resources/checked.png" />
-
-                                    <Border
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Bottom"
-                                        Background="{DynamicResource BrushMask}"
-                                        CornerRadius="5 0 5 0">
-                                        <TextBlock
-                                            Name="nameDuration"
-                                            Padding="6,0"
-                                            Foreground="{DynamicResource BrushText}"
-                                            Text="{Binding Duration}" />
-                                    </Border>
-                                </Grid>
-                            </Border>
-
-                            <TextBlock
-                                Name="nameTitle"
-                                Height="35"
-                                MaxWidth="190"
-                                Margin="0,10,0,0"
-                                Foreground="{DynamicResource BrushTextDark}"
-                                Tag="{Binding Bvid}"
-                                Text="{Binding Title}"
-                                TextTrimming="CharacterEllipsis"
-                                TextWrapping="Wrap"
-                                ToolTip="{Binding Title}">
-                                <i:Interaction.Triggers>
-                                    <i:EventTrigger EventName="MouseLeftButtonUp">
-                                        <i:InvokeCommandAction Command="{Binding TitleCommand}" CommandParameter="{Binding DataContext.PageName, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=UserControl}}" />
-                                    </i:EventTrigger>
-                                </i:Interaction.Triggers>
-                            </TextBlock>
-
-                            <Grid Margin="0,3,0,0">
+                        <Border
+                            Name="nameRow"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource BrushBorderTranslucent}"
+                            BorderThickness="0,0,0,1">
+                            <Grid Height="36">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition />
-                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="{StaticResource PublicationColCheck}" />
+                                    <ColumnDefinition Width="{StaticResource PublicationColStatus}" />
+                                    <ColumnDefinition Width="{StaticResource PublicationColIndex}" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="{StaticResource PublicationColDuration}" />
+                                    <ColumnDefinition Width="{StaticResource PublicationColPlay}" />
+                                    <ColumnDefinition Width="{StaticResource PublicationColDate}" />
                                 </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                    <Image
-                                        Width="11"
-                                        Height="11"
-                                        Source="/DownKyi;component/Resources/play.png" />
-                                    <TextBlock
-                                        Margin="5,0,0,0"
-                                        Foreground="{DynamicResource BrushTextGrey}"
-                                        Text="{Binding PlayNumber}" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                    <Image
-                                        Width="12"
-                                        Height="11"
-                                        Source="/DownKyi;component/Resources/time.png" />
-                                    <TextBlock
-                                        Margin="5,0,0,0"
-                                        Foreground="{DynamicResource BrushTextGrey}"
-                                        Text="{Binding CreateTime}" />
-                                </StackPanel>
+                                <CheckBox
+                                    Grid.Column="0"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                    Style="{StaticResource CheckBoxStyle}" />
+
+                                <!--  已下载标记：绿色实心圆点  -->
+                                <Ellipse
+                                    Name="nameDownloadedDot"
+                                    Grid.Column="1"
+                                    Width="10"
+                                    Height="10"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Fill="#4CAF50"
+                                    ToolTip="已下载"
+                                    Visibility="Collapsed" />
+
+                                <TextBlock
+                                    Grid.Column="2"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Foreground="{DynamicResource BrushTextGrey}"
+                                    Text="{Binding Index}" />
+
+                                <TextBlock
+                                    Name="nameTitle"
+                                    Grid.Column="3"
+                                    Margin="6,0,12,0"
+                                    VerticalAlignment="Center"
+                                    Cursor="Hand"
+                                    Foreground="{DynamicResource BrushTextDark}"
+                                    MouseLeftButtonDown="OnTitleMouseLeftButtonDown"
+                                    Tag="{Binding Bvid}"
+                                    Text="{Binding Title}"
+                                    TextTrimming="CharacterEllipsis"
+                                    ToolTip="{Binding Title}" />
+
+                                <TextBlock
+                                    Grid.Column="4"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Foreground="{DynamicResource BrushTextGrey}"
+                                    Text="{Binding Duration}" />
+
+                                <TextBlock
+                                    Grid.Column="5"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Foreground="{DynamicResource BrushTextGrey}"
+                                    Text="{Binding PlayNumber}" />
+
+                                <TextBlock
+                                    Grid.Column="6"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Foreground="{DynamicResource BrushTextGrey}"
+                                    Text="{Binding CreateTime}" />
                             </Grid>
-                        </StackPanel>
+                        </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="nameChecked" Property="Visibility" Value="Visible" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="False">
-                                <Setter TargetName="nameChecked" Property="Visibility" Value="Hidden" />
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="nameRow" Property="Background" Value="{DynamicResource BrushBorderTranslucent}" />
                             </Trigger>
                             <Trigger SourceName="nameTitle" Property="IsMouseOver" Value="True">
                                 <Setter TargetName="nameTitle" Property="Foreground" Value="{DynamicResource BrushPrimary}" />
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsDownloaded}" Value="True">
+                                <Setter TargetName="nameDownloadedDot" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="nameTitle" Property="Foreground" Value="{DynamicResource BrushTextGrey}" />
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -204,29 +205,74 @@
 
             <Grid Name="nameMediaPanel" Grid.Column="1">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="32" />
+                    <RowDefinition Height="1" />
                     <RowDefinition />
                     <RowDefinition Height="1" />
                     <RowDefinition Height="50" />
                 </Grid.RowDefinitions>
 
+                <!--  表头  -->
+                <Grid Grid.Row="0" Background="{DynamicResource BrushBorderTranslucent}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{StaticResource PublicationColCheck}" />
+                        <ColumnDefinition Width="{StaticResource PublicationColStatus}" />
+                        <ColumnDefinition Width="{StaticResource PublicationColIndex}" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="{StaticResource PublicationColDuration}" />
+                        <ColumnDefinition Width="{StaticResource PublicationColPlay}" />
+                        <ColumnDefinition Width="{StaticResource PublicationColDate}" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock
+                        Grid.Column="2"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontWeight="Bold"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{DynamicResource PublicationHeaderIndex}" />
+                    <TextBlock
+                        Grid.Column="3"
+                        Margin="6,0,0,0"
+                        VerticalAlignment="Center"
+                        FontWeight="Bold"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{DynamicResource PublicationHeaderTitle}" />
+                    <TextBlock
+                        Grid.Column="4"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontWeight="Bold"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{DynamicResource PublicationHeaderDuration}" />
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontWeight="Bold"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{DynamicResource PublicationHeaderPlay}" />
+                    <TextBlock
+                        Grid.Column="6"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontWeight="Bold"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{DynamicResource PublicationHeaderDate}" />
+                </Grid>
+
+                <TextBlock Grid.Row="1" Background="{DynamicResource BrushBorder}" />
+
                 <ListBox
                     x:Name="nameMedias"
-                    Grid.Row="0"
+                    Grid.Row="2"
                     BorderThickness="0"
                     ItemContainerStyle="{StaticResource MediaListStyle}"
                     ItemsSource="{Binding Medias}"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                    SelectionMode="Extended">
-                    <i:Interaction.Triggers>
-                        <i:EventTrigger EventName="SelectionChanged">
-                            <i:InvokeCommandAction Command="{Binding MediasCommand}" CommandParameter="{Binding ElementName=nameMedias, Path=SelectedItems}" />
-                        </i:EventTrigger>
-                    </i:Interaction.Triggers>
-                    <ListBox.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel IsItemsHost="True" />
-                        </ItemsPanelTemplate>
-                    </ListBox.ItemsPanel>
+                    SelectionMode="Single"
+                    VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.VirtualizationMode="Recycling">
                     <ListBox.Style>
                         <Style TargetType="ListBox">
                             <Setter Property="Template">
@@ -238,7 +284,7 @@
                                             Background="{TemplateBinding Background}"
                                             BorderBrush="{TemplateBinding BorderBrush}"
                                             BorderThickness="{TemplateBinding BorderThickness}">
-                                            <ScrollViewer Focusable="False">
+                                            <ScrollViewer Focusable="False" VerticalScrollBarVisibility="Auto">
                                                 <ItemsPresenter />
                                             </ScrollViewer>
                                         </Border>
@@ -251,7 +297,7 @@
 
                 <!--  加载gif  -->
                 <StackPanel
-                    Grid.Row="0"
+                    Grid.Row="2"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Orientation="Vertical"
@@ -269,15 +315,15 @@
 
                 <!--  没有数据提示  -->
                 <Image
-                    Grid.Row="0"
+                    Grid.Row="2"
                     Width="256"
                     Height="256"
                     Source="/DownKyi;component/Resources/no-data.png"
                     Visibility="{Binding NoDataVisibility}" />
 
-                <TextBlock Grid.Row="1" Background="{DynamicResource BrushBorder}" />
+                <TextBlock Grid.Row="3" Background="{DynamicResource BrushBorder}" />
 
-                <Grid Grid.Row="2">
+                <Grid Grid.Row="4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="80" />
                         <ColumnDefinition />
@@ -291,7 +337,6 @@
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
                         Command="{Binding SelectAllCommand}"
-                        CommandParameter="{Binding ElementName=nameMedias, Path=SelectedItem}"
                         Content="{DynamicResource SelectAll}"
                         Foreground="{DynamicResource BrushTextDark}"
                         IsChecked="{Binding IsSelectAll, Mode=TwoWay}"

@@ -21,11 +21,25 @@ namespace DownKyi.ViewModels.PageViewModels
 
         #region 页面属性申明
 
+        private int index;
+        public int Index
+        {
+            get => index;
+            set => SetProperty(ref index, value);
+        }
+
         private bool isSelected;
         public bool IsSelected
         {
             get => isSelected;
             set => SetProperty(ref isSelected, value);
+        }
+
+        private bool isDownloaded;
+        public bool IsDownloaded
+        {
+            get => isDownloaded;
+            set => SetProperty(ref isDownloaded, value);
         }
 
         private BitmapImage cover;

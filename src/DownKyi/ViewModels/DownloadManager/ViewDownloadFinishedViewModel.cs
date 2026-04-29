@@ -1,5 +1,6 @@
-﻿using DownKyi.Core.Logging;
+using DownKyi.Core.Logging;
 using DownKyi.Core.Settings;
+using DownKyi.CustomControl;
 using DownKyi.Services;
 using DownKyi.Utils;
 using Prism.Commands;
@@ -19,6 +20,9 @@ namespace DownKyi.ViewModels.DownloadManager
     {
         public const string Tag = "PageDownloadManagerDownloadFinished";
 
+        // 每页显示条数
+        private readonly int PageSize = 30;
+
         #region 页面属性申明
 
         private ObservableCollection<DownloadedItem> downloadedList;
@@ -28,11 +32,25 @@ namespace DownKyi.ViewModels.DownloadManager
             set => SetProperty(ref downloadedList, value);
         }
 
+        private ObservableCollection<DownloadedItem> displayList;
+        public ObservableCollection<DownloadedItem> DisplayList
+        {
+            get => displayList;
+            set => SetProperty(ref displayList, value);
+        }
+
         private int finishedSortBy;
         public int FinishedSortBy
         {
             get => finishedSortBy;
             set => SetProperty(ref finishedSortBy, value);
+        }
+
+        private CustomPagerViewModel pager;
+        public CustomPagerViewModel Pager
+        {
+            get => pager;
+            set => SetProperty(ref pager, value);
         }
 
         #endregion
@@ -41,12 +59,20 @@ namespace DownKyi.ViewModels.DownloadManager
         {
             // 初始化DownloadedList
             DownloadedList = App.DownloadedList;
+            DisplayList = new ObservableCollection<DownloadedItem>();
+
             DownloadedList.CollectionChanged += new NotifyCollectionChangedEventHandler((sender, e) =>
             {
                 if (e.Action == NotifyCollectionChangedAction.Add)
                 {
                     SetDialogService();
                 }
+
+                // 列表变化时刷新分页
+                App.PropertyChangeAsync(new Action(() =>
+                {
+                    RefreshPage();
+                }));
             });
             SetDialogService();
 
@@ -64,7 +90,72 @@ namespace DownKyi.ViewModels.DownloadManager
                     break;
             }
             App.SortDownloadedList(finishedSort);
+
+            // 初始化分页（排序后DownloadedList已填充）
+            InitPager();
         }
+
+        #region 分页
+
+        /// <summary>
+        /// 初始化分页器
+        /// </summary>
+        private void InitPager()
+        {
+            int count = (int)Math.Ceiling((double)App.DownloadedList.Count / PageSize);
+            if (count < 1) { count = 1; }
+
+            Pager = new CustomPagerViewModel(1, count);
+            Pager.CurrentChanged += OnCurrentChanged_Pager;
+            Pager.CountChanged += OnCountChanged_Pager;
+
+            RefreshPage();
+        }
+
+        private void OnCountChanged_Pager(int count) { }
+
+        private bool OnCurrentChanged_Pager(int old, int current)
+        {
+            RefreshPage(current);
+            return true;
+        }
+
+        /// <summary>
+        /// 刷新当前页数据
+        /// </summary>
+        private void RefreshPage(int? targetPage = null)
+        {
+            int totalCount = App.DownloadedList.Count;
+            int pageCount = (int)Math.Ceiling((double)totalCount / PageSize);
+            if (pageCount < 1) { pageCount = 1; }
+
+            // 确定当前页
+            int currentPage = targetPage ?? (Pager?.Current ?? 1);
+            if (currentPage > pageCount) { currentPage = pageCount; }
+            if (currentPage < 1) { currentPage = 1; }
+
+            // 当总页数变化时重建分页器（避免Count setter在count<current时不生效的问题）
+            if (Pager == null || Pager.Count != pageCount)
+            {
+                var newPager = new CustomPagerViewModel(currentPage, pageCount);
+                newPager.CurrentChanged += OnCurrentChanged_Pager;
+                newPager.CountChanged += OnCountChanged_Pager;
+                Pager = newPager;
+            }
+
+            // 计算切片范围
+            int skip = (currentPage - 1) * PageSize;
+            var pageItems = App.DownloadedList.Skip(skip).Take(PageSize).ToList();
+
+            // 更新显示列表
+            DisplayList.Clear();
+            foreach (var item in pageItems)
+            {
+                DisplayList.Add(item);
+            }
+        }
+
+        #endregion
 
         #region 命令申明
 
