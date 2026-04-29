@@ -18,6 +18,7 @@
         <Style x:Key="MediaListStyle" TargetType="{x:Type ListBoxItem}">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />
+            <EventSetter Event="MouseLeftButtonUp" Handler="OnRowMouseLeftButtonUp" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type ListBoxItem}">
@@ -101,6 +102,9 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="nameRow" Property="Background" Value="{DynamicResource BrushBorderTranslucent}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="nameRow" Property="Background" Value="{DynamicResource BrushPrimaryTranslucent3}" />
                             </Trigger>
                             <Trigger SourceName="nameTitle" Property="IsMouseOver" Value="True">
                                 <Setter TargetName="nameTitle" Property="Foreground" Value="{DynamicResource BrushPrimary}" />
@@ -269,6 +273,7 @@
                     BorderThickness="0"
                     ItemContainerStyle="{StaticResource MediaListStyle}"
                     ItemsSource="{Binding Medias}"
+                    PreviewKeyDown="OnMediasPreviewKeyDown"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                     SelectionMode="Single"
                     VirtualizingPanel.IsVirtualizing="True"

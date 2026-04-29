@@ -220,7 +220,16 @@ namespace DownKyi.Core.Utils
                     break;
                 }
             }
-            return destName.Substring(i, j - i + 1);
+            destName = destName.Substring(i, j - i + 1);
+
+            // 单段长度上限，防止叠加后超出 Windows MAX_PATH（260）
+            const int MaxSegmentLength = 80;
+            if (destName.Length > MaxSegmentLength)
+            {
+                destName = destName.Substring(0, MaxSegmentLength).TrimEnd(' ', '.');
+            }
+
+            return destName;
         }
 
     }

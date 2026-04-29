@@ -436,6 +436,10 @@ namespace DownKyi.Services.Download
         /// <returns></returns>
         private async Task SingleDownload(DownloadingItem downloading)
         {
+            // 兜底：早期版本入队的任务可能 FilePath 过长，这里再裁一次，避免后续 FFmpeg / 子资源
+            // 文件操作触发 DirectoryNotFoundException。
+            downloading.DownloadBase.FilePath = LimitPathLength(downloading.DownloadBase.FilePath);
+
             // 路径
             downloading.DownloadBase.FilePath = downloading.DownloadBase.FilePath.Replace("\\", "/");
             string[] temp = downloading.DownloadBase.FilePath.Split('/');
@@ -644,10 +648,21 @@ namespace DownKyi.Services.Download
                         }
                     }
 
-                    if (!isMediaSuccess || !isDanmakuSuccess || !isSubtitleSuccess || !isCover)
+                    // 主要内容（音视频）失败才视为整体失败；
+                    // 字幕/弹幕/封面属于附加内容，缺失时只记录日志，不阻塞下载完成。
+                    if (!isMediaSuccess)
                     {
                         DownloadFailed(downloading);
                         return;
+                    }
+
+                    if (!isSubtitleSuccess || !isDanmakuSuccess || !isCover)
+                    {
+                        var missing = new List<string>();
+                        if (!isSubtitleSuccess) { missing.Add("字幕"); }
+                        if (!isDanmakuSuccess) { missing.Add("弹幕"); }
+                        if (!isCover) { missing.Add("封面"); }
+                        LogManager.Error($"{Tag}.SingleDownload()", $"{downloading.DownloadBase.Name} 附加内容下载失败: {string.Join("、", missing)}");
                     }
 
                     // 下载完成后处理
@@ -699,6 +714,26 @@ namespace DownKyi.Services.Download
             downloading.Downloading.DownloadStatus = DownloadStatus.DOWNLOAD_FAILED;
             downloading.StartOrPause = ButtonIcon.Instance().Retry;
             downloading.StartOrPause.Fill = DictionaryResource.GetColor("ColorPrimary");
+        }
+
+        /// <summary>
+        /// 控制下载文件路径长度，避免后续追加扩展名（.mp4 / .Cover.jpg / _<lang>.srt 等）后超出 Windows MAX_PATH（260）。
+        /// 与 AddToDownloadService.LimitPathLength 同步，对历史入队的过长路径再做一次兜底。
+        /// </summary>
+        private static string LimitPathLength(string filePath)
+        {
+            const int MaxFullPathLength = 230;
+            if (string.IsNullOrEmpty(filePath) || filePath.Length <= MaxFullPathLength) { return filePath; }
+
+            string dir = Path.GetDirectoryName(filePath);
+            string name = Path.GetFileName(filePath);
+            if (string.IsNullOrEmpty(dir) || string.IsNullOrEmpty(name)) { return filePath; }
+
+            int allowedNameLength = MaxFullPathLength - dir.Length - 1;
+            if (allowedNameLength < 10) { return filePath; }
+
+            name = name.Substring(0, allowedNameLength).TrimEnd(' ', '.');
+            return Path.Combine(dir, name);
         }
 
         /// <summary>

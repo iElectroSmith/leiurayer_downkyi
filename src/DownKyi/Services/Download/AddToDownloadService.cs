@@ -359,6 +359,7 @@ namespace DownKyi.Services.Download
 
                     // 合成绝对路径
                     string filePath = Path.Combine(directory, fileName.RelativePath());
+                    filePath = LimitPathLength(filePath);
 
                     // 视频类别
                     PlayStreamType playStreamType;
@@ -446,6 +447,30 @@ namespace DownKyi.Services.Download
             }
 
             return i;
+        }
+
+        /// <summary>
+        /// 控制下载文件路径长度，避免后续追加扩展名（.mp4 / .Cover.jpg / _<lang>.srt 等）后超出 Windows MAX_PATH（260）。
+        /// </summary>
+        private static string LimitPathLength(string filePath)
+        {
+            // 预留约 30 字符给后续追加的扩展名 / 字幕语言后缀 / 封面后缀
+            const int MaxFullPathLength = 230;
+            if (string.IsNullOrEmpty(filePath) || filePath.Length <= MaxFullPathLength) { return filePath; }
+
+            string dir = Path.GetDirectoryName(filePath);
+            string name = Path.GetFileName(filePath);
+            if (string.IsNullOrEmpty(dir) || string.IsNullOrEmpty(name)) { return filePath; }
+
+            int allowedNameLength = MaxFullPathLength - dir.Length - 1;
+            if (allowedNameLength < 10)
+            {
+                // 目录本身已接近上限，无法可靠裁剪，原样返回让上层报错
+                return filePath;
+            }
+
+            name = name.Substring(0, allowedNameLength).TrimEnd(' ', '.');
+            return Path.Combine(dir, name);
         }
 
     }
