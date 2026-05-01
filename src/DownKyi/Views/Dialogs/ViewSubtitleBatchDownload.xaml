@@ -1,0 +1,324 @@
+<UserControl
+    x:Class="DownKyi.Views.Dialogs.ViewSubtitleBatchDownload"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:prism="http://prismlibrary.com/"
+    prism:ViewModelLocator.AutoWireViewModel="True">
+    <prism:Dialog.WindowStyle>
+        <Style TargetType="Window">
+            <Setter Property="prism:Dialog.WindowStartupLocation" Value="CenterOwner" />
+            <Setter Property="ResizeMode" Value="NoResize" />
+            <Setter Property="ShowInTaskbar" Value="False" />
+            <Setter Property="SizeToContent" Value="WidthAndHeight" />
+            <Setter Property="WindowStyle" Value="None" />
+        </Style>
+    </prism:Dialog.WindowStyle>
+
+    <Border BorderBrush="{DynamicResource BrushWindowBorder}" BorderThickness="1,1,1,0.6">
+        <Grid Background="{DynamicResource BrushBackground}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="40" />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+
+            <!--  标题栏  -->
+            <Grid
+                Grid.Row="0"
+                Background="{DynamicResource BrushBackgroundGreyTranslucent3}"
+                KeyboardNavigation.TabNavigation="None">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="50" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock
+                    Grid.Column="0"
+                    Margin="10,0"
+                    VerticalAlignment="Center"
+                    FontSize="12"
+                    Foreground="{DynamicResource BrushCaptionForeground}"
+                    Text="{Binding Title}" />
+
+                <Button
+                    Grid.Column="1"
+                    Command="{Binding CloseCommand}"
+                    Style="{StaticResource CloseBtnStyle}"
+                    ToolTip="{DynamicResource Close}">
+                    <Path
+                        Width="{Binding CloseIcon.Width}"
+                        Height="{Binding CloseIcon.Height}"
+                        Data="{Binding CloseIcon.Data}"
+                        Fill="{Binding CloseIcon.Fill}"
+                        Stretch="UniformToFill" />
+                    <i:Interaction.Triggers>
+                        <i:EventTrigger EventName="MouseEnter">
+                            <i:InvokeCommandAction Command="{Binding CloseEnterCommand}" />
+                        </i:EventTrigger>
+                        <i:EventTrigger EventName="MouseLeave">
+                            <i:InvokeCommandAction Command="{Binding CloseLeaveCommand}" />
+                        </i:EventTrigger>
+                        <i:EventTrigger EventName="LostMouseCapture">
+                            <i:InvokeCommandAction Command="{Binding CloseLeaveCommand}" />
+                        </i:EventTrigger>
+                    </i:Interaction.Triggers>
+                </Button>
+            </Grid>
+
+            <!--  内容区  -->
+            <Grid
+                Grid.Row="1"
+                MinWidth="600"
+                Margin="15,15">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                </Grid.RowDefinitions>
+
+                <!--  第 0 行：目标  -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{DynamicResource SubtitleBatchTarget}" />
+
+                    <TextBlock
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{Binding TargetDisplay}" />
+                </Grid>
+
+                <!--  第 1 行：输出目录  -->
+                <Grid Grid.Row="1" Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60" />
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{DynamicResource SubtitleBatchOutput}" />
+
+                    <TextBlock
+                        Grid.Column="1"
+                        Margin="0,0,10,0"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{Binding OutputDirectory}"
+                        TextTrimming="CharacterEllipsis" />
+
+                    <Button
+                        Grid.Column="2"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Command="{Binding SelectDirCommand}"
+                        Content="{DynamicResource SubtitleBatchSelectDir}"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushText}"
+                        Style="{StaticResource BtnStyle}" />
+                </Grid>
+
+                <!--  第 2 行：续传提示（命中 manifest 或目录不匹配时显示）  -->
+                <TextBlock
+                    Grid.Row="2"
+                    Margin="0,0,0,10"
+                    FontSize="12"
+                    Foreground="{DynamicResource BrushTextDark}"
+                    Text="{Binding ResumeHint}"
+                    TextWrapping="Wrap"
+                    Visibility="{Binding ResumeHintVisibility}" />
+
+                <!--  分隔线  -->
+                <TextBlock
+                    Grid.Row="3"
+                    Height="1"
+                    Margin="0,0,0,10"
+                    Background="{DynamicResource BrushBorder}" />
+
+                <!--  第 4 行：进度  -->
+                <Grid Grid.Row="4" Margin="0,0,0,10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto" />
+                        <RowDefinition Height="auto" />
+                        <RowDefinition Height="auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60" />
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{DynamicResource SubtitleBatchProgress}" />
+
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{Binding ProgressDisplay}" />
+
+                    <TextBlock
+                        Grid.Row="0"
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{Binding ProgressPercent}" />
+
+                    <ProgressBar
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Grid.ColumnSpan="3"
+                        Height="8"
+                        Margin="0,5,0,0"
+                        Maximum="{Binding ProgressTotal}"
+                        Value="{Binding ProgressCurrent}" />
+
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        Margin="0,8,0,0"
+                        VerticalAlignment="Top"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}"
+                        Text="{DynamicResource SubtitleBatchCurrent}" />
+
+                    <StackPanel
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Grid.ColumnSpan="2"
+                        Margin="0,8,0,0">
+                        <TextBlock
+                            FontSize="12"
+                            Foreground="{DynamicResource BrushTextDark}"
+                            Text="{Binding CurrentBvid}" />
+                        <TextBlock
+                            FontSize="12"
+                            Foreground="{DynamicResource BrushTextDark}"
+                            Text="{Binding CurrentTitle}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="NoWrap" />
+                    </StackPanel>
+                </Grid>
+
+                <!--  第 5 行：统计  -->
+                <StackPanel
+                    Grid.Row="5"
+                    Margin="0,10,0,15"
+                    HorizontalAlignment="Left"
+                    Orientation="Horizontal">
+                    <TextBlock
+                        Margin="0,0,15,0"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}">
+                        <Run Text="{DynamicResource SubtitleBatchStatusOk}" />
+                        <Run Text=" " />
+                        <Run Text="{Binding CountOk}" />
+                    </TextBlock>
+                    <TextBlock
+                        Margin="0,0,15,0"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}">
+                        <Run Text="{DynamicResource SubtitleBatchStatusNoSub}" />
+                        <Run Text=" " />
+                        <Run Text="{Binding CountNoSub}" />
+                    </TextBlock>
+                    <TextBlock
+                        Margin="0,0,15,0"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}">
+                        <Run Text="{DynamicResource SubtitleBatchStatusFailed}" />
+                        <Run Text=" " />
+                        <Run Text="{Binding CountFailed}" />
+                    </TextBlock>
+                    <TextBlock
+                        Margin="0,0,15,0"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushTextDark}">
+                        <Run Text="{DynamicResource SubtitleBatchStatusPending}" />
+                        <Run Text=" " />
+                        <Run Text="{Binding CountPending}" />
+                    </TextBlock>
+                </StackPanel>
+
+                <!--  第 6 行：按钮  -->
+                <Grid Grid.Row="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto" />
+                        <ColumnDefinition Width="auto" />
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="auto" />
+                        <ColumnDefinition Width="auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button
+                        Grid.Column="0"
+                        Width="75"
+                        Margin="0,0,10,0"
+                        Command="{Binding StartCommand}"
+                        Content="{Binding StartButtonText}"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushText}"
+                        IsEnabled="{Binding CanStart}"
+                        Style="{StaticResource BtnStyle}" />
+
+                    <Button
+                        Grid.Column="1"
+                        Width="75"
+                        Margin="0,0,10,0"
+                        Command="{Binding StopCommand}"
+                        Content="{DynamicResource SubtitleBatchStop}"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushText}"
+                        IsEnabled="{Binding CanStop}"
+                        Style="{StaticResource BtnStyle}" />
+
+                    <Button
+                        Grid.Column="3"
+                        Width="90"
+                        Margin="0,0,10,0"
+                        Command="{Binding OpenDirCommand}"
+                        Content="{DynamicResource SubtitleBatchOpenDir}"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushText}"
+                        Style="{StaticResource BtnStyle}" />
+
+                    <Button
+                        Grid.Column="4"
+                        Width="90"
+                        Command="{Binding OpenReportCommand}"
+                        Content="{DynamicResource SubtitleBatchOpenReport}"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushText}"
+                        Style="{StaticResource BtnStyle}" />
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>
