@@ -228,6 +228,7 @@ namespace DownKyi.ViewModels
             {
                { "object", banner.Object },
                { "mid", mid },
+               { "userName", UserName ?? string.Empty },
             };
 
             switch (banner.Id)

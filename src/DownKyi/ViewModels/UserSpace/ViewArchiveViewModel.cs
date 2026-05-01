@@ -17,6 +17,7 @@ namespace DownKyi.ViewModels.UserSpace
         public const string Tag = "PageUserSpaceArchive";
 
         private long mid = -1;
+        private string userName = string.Empty;
 
         #region 页面属性申明
 
@@ -63,7 +64,8 @@ namespace DownKyi.ViewModels.UserSpace
             {
                 { "mid", mid },
                 { "tid", zone.Tid },
-                { "list", PublicationZones.ToList() }
+                { "list", PublicationZones.ToList() },
+                { "upName", userName }
             };
 
             // 进入视频页面
@@ -102,6 +104,7 @@ namespace DownKyi.ViewModels.UserSpace
 
             // 传入mid
             mid = navigationContext.Parameters.GetValue<long>("mid");
+            userName = navigationContext.Parameters.GetValue<string>("userName") ?? string.Empty;
 
             int VideoCount = 0;
             foreach (var zone in parameter)

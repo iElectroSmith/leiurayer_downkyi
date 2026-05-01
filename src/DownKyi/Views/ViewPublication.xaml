@@ -332,6 +332,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="80" />
                         <ColumnDefinition />
+                        <ColumnDefinition Width="110" />
                         <ColumnDefinition Width="100" />
                         <ColumnDefinition Width="80" />
                     </Grid.ColumnDefinitions>
@@ -358,6 +359,17 @@
                         Margin="0,0,10,0"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
+                        Command="{Binding BatchSubtitleDownloadCommand}"
+                        Content="{DynamicResource BatchSubtitleDownload}"
+                        FontSize="12"
+                        Foreground="{DynamicResource BrushText}"
+                        Style="{StaticResource BtnStyle}" />
+
+                    <Button
+                        Grid.Column="3"
+                        Margin="0,0,10,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
                         Command="{Binding AddToDownloadCommand}"
                         Content="{DynamicResource DownloadSelectedPublication}"
                         FontSize="12"
@@ -365,7 +377,7 @@
                         Style="{StaticResource BtnStyle}" />
 
                     <Button
-                        Grid.Column="3"
+                        Grid.Column="4"
                         Margin="0,0,10,0"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"

@@ -159,6 +159,7 @@
     <Compile Include="ViewModels\BaseViewModel.cs" />
     <Compile Include="ViewModels\Dialogs\ViewDownloadSetterViewModel.cs" />
     <Compile Include="ViewModels\Dialogs\BaseDialogViewModel.cs" />
+    <Compile Include="ViewModels\Dialogs\ViewSubtitleBatchDownloadViewModel.cs" />
     <Compile Include="ViewModels\DownloadManager\DownloadBaseItem.cs" />
     <Compile Include="ViewModels\DownloadManager\DownloadedItem.cs" />
     <Compile Include="ViewModels\DownloadManager\DownloadingItem.cs" />
@@ -206,6 +207,9 @@
     </Compile>
     <Compile Include="Views\Dialogs\ViewParsingSelector.xaml.cs">
       <DependentUpon>ViewParsingSelector.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Dialogs\ViewSubtitleBatchDownload.xaml.cs">
+      <DependentUpon>ViewSubtitleBatchDownload.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\DownloadManager\ViewDownloadFinished.xaml.cs">
       <DependentUpon>ViewDownloadFinished.xaml</DependentUpon>
@@ -383,6 +387,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\Dialogs\ViewParsingSelector.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Dialogs\ViewSubtitleBatchDownload.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

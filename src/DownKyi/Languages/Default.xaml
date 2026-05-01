@@ -94,13 +94,35 @@
 
     <!--  Publication  -->
     <system:String x:Key="DownloadSelectedPublication">下载选中项</system:String>
-    <system:String x:Key="DownloadAllPublication">下载全部</system:String>
+    <system:String x:Key="DownloadAllPublication">下载本页</system:String>
     <system:String x:Key="PublicationWait">请稍等，马上就好~</system:String>
     <system:String x:Key="PublicationHeaderIndex">序号</system:String>
     <system:String x:Key="PublicationHeaderTitle">标题</system:String>
     <system:String x:Key="PublicationHeaderDuration">时长</system:String>
     <system:String x:Key="PublicationHeaderPlay">播放</system:String>
     <system:String x:Key="PublicationHeaderDate">发布日期</system:String>
+
+    <!--  SubtitleBatchDownload  -->
+    <system:String x:Key="BatchSubtitleDownload">批量下载字幕</system:String>
+    <system:String x:Key="SubtitleBatchTitle">字幕批量下载</system:String>
+    <system:String x:Key="SubtitleBatchTarget">目标</system:String>
+    <system:String x:Key="SubtitleBatchOutput">输出</system:String>
+    <system:String x:Key="SubtitleBatchSelectDir">选择目录</system:String>
+    <system:String x:Key="SubtitleBatchProgress">进度</system:String>
+    <system:String x:Key="SubtitleBatchCurrent">当前</system:String>
+    <system:String x:Key="SubtitleBatchStart">开始</system:String>
+    <system:String x:Key="SubtitleBatchContinue">继续</system:String>
+    <system:String x:Key="SubtitleBatchStop">停止</system:String>
+    <system:String x:Key="SubtitleBatchOpenDir">打开目录</system:String>
+    <system:String x:Key="SubtitleBatchOpenReport">查看报告</system:String>
+    <system:String x:Key="SubtitleBatchStatusOk">成功</system:String>
+    <system:String x:Key="SubtitleBatchStatusNoSub">无字幕</system:String>
+    <system:String x:Key="SubtitleBatchStatusFailed">失败</system:String>
+    <system:String x:Key="SubtitleBatchStatusPending">待下载</system:String>
+    <system:String x:Key="SubtitleBatchResumeFound">发现历史任务，将从上次中断处继续</system:String>
+    <system:String x:Key="SubtitleBatchDirMismatch">该目录是其他任务的工作目录，请选择空目录或同一任务的目录</system:String>
+    <system:String x:Key="SubtitleBatchDone">已完成</system:String>
+    <system:String x:Key="SubtitleBatchStopped">已停止</system:String>
 
     <!--  Friend  -->
     <system:String x:Key="Friend">好友</system:String>

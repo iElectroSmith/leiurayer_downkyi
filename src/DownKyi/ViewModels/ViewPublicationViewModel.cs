@@ -1,4 +1,5 @@
 ﻿using DownKyi.Core.BiliApi.VideoStream;
+using DownKyi.Core.Logging;
 using DownKyi.Core.Utils;
 using DownKyi.CustomControl;
 using DownKyi.Events;
@@ -6,6 +7,7 @@ using DownKyi.Images;
 using DownKyi.Services;
 using DownKyi.Services.Download;
 using DownKyi.Utils;
+using DownKyi.ViewModels.Dialogs;
 using DownKyi.ViewModels.PageViewModels;
 using DownKyi.ViewModels.UserSpace;
 using Prism.Commands;
@@ -29,6 +31,7 @@ namespace DownKyi.ViewModels
         private CancellationTokenSource tokenSource;
 
         private long mid = -1;
+        private string upName = string.Empty;
 
         // 每页视频数量，暂时在此写死，以后在设置中增加选项
         private readonly int VideoNumberInPage = 50;
@@ -286,6 +289,32 @@ namespace DownKyi.ViewModels
             AddToDownload(false);
         }
 
+        // 字幕批量下载事件
+        private DelegateCommand batchSubtitleDownloadCommand;
+        public DelegateCommand BatchSubtitleDownloadCommand => batchSubtitleDownloadCommand ?? (batchSubtitleDownloadCommand = new DelegateCommand(ExecuteBatchSubtitleDownloadCommand));
+
+        /// <summary>
+        /// 字幕批量下载事件
+        /// </summary>
+        private void ExecuteBatchSubtitleDownloadCommand()
+        {
+            if (SelectTabId < 0 || SelectTabId >= TabHeaders.Count) { return; }
+
+            var tab = TabHeaders[SelectTabId];
+            int.TryParse(tab.SubTitle, out int totalCount);
+
+            var parameters = new DialogParameters
+            {
+                { "mid", mid },
+                { "tabId", tab.Id },
+                { "upName", upName ?? string.Empty },
+                { "tabName", tab.Title },
+                { "totalCount", totalCount }
+            };
+
+            dialogService.ShowDialog(ViewSubtitleBatchDownloadViewModel.Tag, parameters, null);
+        }
+
         #endregion
 
         /// <summary>
@@ -494,6 +523,7 @@ namespace DownKyi.ViewModels
             mid = (long)parameter["mid"];
             int tid = (int)parameter["tid"];
             List<PublicationZone> zones = (List<PublicationZone>)parameter["list"];
+            upName = parameter.ContainsKey("upName") ? (parameter["upName"] as string ?? string.Empty) : string.Empty;
 
             foreach (var item in zones)
             {

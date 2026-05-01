@@ -240,6 +240,7 @@ namespace DownKyi
             containerRegistry.RegisterDialog<ViewAlertDialog>(ViewAlertDialogViewModel.Tag);
             containerRegistry.RegisterDialog<ViewDownloadSetter>(ViewDownloadSetterViewModel.Tag);
             containerRegistry.RegisterDialog<ViewParsingSelector>(ViewParsingSelectorViewModel.Tag);
+            containerRegistry.RegisterDialog<ViewSubtitleBatchDownload>(ViewSubtitleBatchDownloadViewModel.Tag);
 
         }
 
