@@ -265,18 +265,35 @@ namespace DownKyi.ViewModels.Dialogs
             tokenSource = new CancellationTokenSource();
             CancellationToken token = tokenSource.Token;
 
-            bool resume = currentManifest != null;
             try
             {
-                if (resume)
+                await Task.Run(() =>
                 {
-                    LogManager.Debug(Tag, $"续传：复用 manifest items={currentManifest.Items.Count}");
-                    await Task.Run(() => DownloadSubtitlesLoop(currentManifest, token), token);
-                }
-                else
-                {
-                    await Task.Run(() => FetchAllAndStartDownload(token), token);
-                }
+                    // 1. 准备 manifest（新建：空 manifest；续传：复用 ProbeManifest 加载的）
+                    if (currentManifest == null)
+                    {
+                        currentManifest = new SubtitleBatchManifest
+                        {
+                            Mid = Mid,
+                            UpName = UpName,
+                            TabId = TabId,
+                            TabName = TabName,
+                            Total = TotalCount
+                        };
+                    }
+
+                    // 2. 拉列表并按 bvid 增量合并（已有跳过、新条目 append 为 pending）
+                    FetchAndMergePublicationList(currentManifest, token);
+                    if (token.IsCancellationRequested)
+                    {
+                        CurrentTitle = DictionaryResource.GetString("SubtitleBatchStopped");
+                        LogManager.Debug(Tag, "拉列表阶段被取消");
+                        return;
+                    }
+
+                    // 3. 进入字幕下载主循环
+                    DownloadSubtitlesLoop(currentManifest, token);
+                }, token);
             }
             catch (OperationCanceledException)
             {
@@ -367,35 +384,36 @@ namespace DownKyi.ViewModels.Dialogs
         }
 
         /// <summary>
-        /// 拉全量投稿列表，按页落盘到 manifest，完成后进入下载循环（下载循环步骤 6 实现）。
+        /// 拉投稿列表并按 bvid 增量合并到 manifest：
+        /// - 已存在的 bvid：保留原 SubtitleBatchItem（status / Files / Attempts 等）
+        /// - 新 bvid：append 为 pending 条目
+        /// 末页判定：单页返回少于 PageSize 即认为到尾。
+        /// 适用于新建（空 manifest）和续传（已有 manifest）两种场景。
         /// </summary>
-        private void FetchAllAndStartDownload(CancellationToken token)
+        private void FetchAndMergePublicationList(SubtitleBatchManifest manifest, CancellationToken token)
         {
-            int totalPages = TotalCount > 0 ? (int)Math.Ceiling(TotalCount / (double)PageSize) : 1;
-            LogManager.Debug(Tag, $"开始拉列表 mid={Mid} tabId={TabId} total={TotalCount} pages={totalPages} dir={OutputDirectory}");
-
-            var manifest = new SubtitleBatchManifest
+            var existingBvids = new HashSet<string>();
+            foreach (var it in manifest.Items)
             {
-                Mid = Mid,
-                UpName = UpName,
-                TabId = TabId,
-                TabName = TabName,
-                Total = TotalCount
-            };
-            currentManifest = manifest;
+                if (!string.IsNullOrEmpty(it.Bvid)) { existingBvids.Add(it.Bvid); }
+            }
+            bool isResume = existingBvids.Count > 0;
+            int newCount = 0;
+            LogManager.Debug(Tag, $"开始拉列表 mid={Mid} tabId={TabId} mode={(isResume ? "增量" : "全量")} 已有={existingBvids.Count} dir={OutputDirectory}");
 
-            for (int page = 1; page <= totalPages; page++)
+            int pageNum = 1;
+            while (!token.IsCancellationRequested)
             {
-                if (token.IsCancellationRequested) { break; }
-
                 CurrentBvid = string.Empty;
-                CurrentTitle = $"正在拉取列表 {page}/{totalPages}";
-                LogManager.Debug(Tag, $"拉取第 {page}/{totalPages} 页");
+                CurrentTitle = isResume
+                    ? $"检查更新 第 {pageNum} 页"
+                    : $"正在拉取列表 第 {pageNum} 页";
+                LogManager.Debug(Tag, $"拉取第 {pageNum} 页");
 
                 SpacePublicationList pubList = null;
                 try
                 {
-                    pubList = Core.BiliApi.Users.UserSpace.GetPublication(Mid, page, PageSize, TabId);
+                    pubList = Core.BiliApi.Users.UserSpace.GetPublication(Mid, pageNum, PageSize, TabId);
                 }
                 catch (Exception e)
                 {
@@ -403,21 +421,26 @@ namespace DownKyi.ViewModels.Dialogs
                 }
 
                 int gotCount = pubList?.Vlist?.Count ?? 0;
-                LogManager.Debug(Tag, $"第 {page} 页返回 {gotCount} 条");
+                LogManager.Debug(Tag, $"第 {pageNum} 页返回 {gotCount} 条");
 
-                if (pubList?.Vlist != null)
+                if (gotCount == 0) { break; }
+
+                int pageNew = 0;
+                foreach (var v in pubList.Vlist)
                 {
-                    foreach (var v in pubList.Vlist)
+                    if (existingBvids.Contains(v.Bvid)) { continue; }
+                    manifest.Items.Add(new SubtitleBatchItem
                     {
-                        manifest.Items.Add(new SubtitleBatchItem
-                        {
-                            Bvid = v.Bvid,
-                            Title = v.Title,
-                            Created = v.Created,
-                            Status = "pending"
-                        });
-                    }
+                        Bvid = v.Bvid,
+                        Title = v.Title,
+                        Created = v.Created,
+                        Status = "pending"
+                    });
+                    existingBvids.Add(v.Bvid);
+                    newCount++;
+                    pageNew++;
                 }
+                LogManager.Debug(Tag, $"第 {pageNum} 页新增 {pageNew} 条（累计新增 {newCount}）");
 
                 // 每页落盘一次，中途停止已拉部分不丢
                 try
@@ -429,27 +452,20 @@ namespace DownKyi.ViewModels.Dialogs
                     LogManager.Error(Tag, e);
                 }
 
-                if (page < totalPages)
-                {
-                    try { Task.Delay(IntervalMs, token).Wait(token); }
-                    catch (OperationCanceledException) { break; }
-                }
+                // 末页判定
+                if (gotCount < PageSize) { break; }
+
+                pageNum++;
+                try { Task.Delay(IntervalMs, token).Wait(token); }
+                catch (OperationCanceledException) { break; }
             }
 
-            // 同步统计 / 进度（基于已拉到的条目）
+            // 同步 manifest 元信息与 UI（增量后总数可能变大）
+            manifest.Total = manifest.Items.Count;
+            TotalCount = manifest.Items.Count;
             ProgressTotal = manifest.Items.Count;
             RecountStats(manifest);
-            LogManager.Debug(Tag, $"列表全部拉完，items={manifest.Items.Count}");
-
-            if (token.IsCancellationRequested)
-            {
-                CurrentTitle = DictionaryResource.GetString("SubtitleBatchStopped");
-                LogManager.Debug(Tag, "拉列表阶段被取消");
-                return;
-            }
-
-            // 进入字幕下载主循环
-            DownloadSubtitlesLoop(manifest, token);
+            LogManager.Debug(Tag, $"列表拉取结束 items={manifest.Items.Count} 新增={newCount} ok={CountOk} noSub={CountNoSub} failed={CountFailed} pending={CountPending}");
         }
 
         /// <summary>
@@ -488,38 +504,56 @@ namespace DownKyi.ViewModels.Dialogs
                     long cid = view.Pages[0].Cid;
                     LogManager.Debug(Tag, $"[{i + 1}/{total}] 视频信息 aid={aid} cid={cid}");
 
-                    var subRips = Core.BiliApi.VideoStream.VideoStream.GetSubtitle(aid, item.Bvid, cid);
-                    int subCount = subRips?.Count ?? -1;
-                    // 仅保留中文字幕（zh-CN / zh-Hans / zh-Hant / ai-zh 等）
-                    var chineseSubs = subRips == null
-                        ? null
-                        : subRips.FindAll(s => !string.IsNullOrEmpty(s.Lan) && s.Lan.IndexOf("zh", StringComparison.OrdinalIgnoreCase) >= 0);
-                    int chineseCount = chineseSubs?.Count ?? 0;
-                    LogManager.Debug(Tag, $"[{i + 1}/{total}] 字幕条数 {subCount} 中文 {chineseCount}");
+                    // 预筛：view.Subtitle.List 直接告诉我们字幕清单（含 lan 字段，但 url 对未登录态可能为空）
+                    // 没中文条目 → 直接标 no_subtitle，省掉一次 PlayerV2 调用
+                    var viewSubList = view.Subtitle?.List;
+                    int viewSubCount = viewSubList?.Count ?? 0;
+                    bool hasZhInView = viewSubList != null && viewSubList.Exists(s =>
+                        !string.IsNullOrEmpty(s.Lan) && s.Lan.IndexOf("zh", StringComparison.OrdinalIgnoreCase) >= 0);
+                    LogManager.Debug(Tag, $"[{i + 1}/{total}] view.subtitle 列表 {viewSubCount} 含中文={hasZhInView}");
 
-                    if (chineseSubs == null || chineseSubs.Count == 0)
+                    if (!hasZhInView)
                     {
                         item.Status = "no_subtitle";
                         item.Files = null;
                         item.Error = null;
+                        LogManager.Debug(Tag, $"[{i + 1}/{total}] 预筛跳过 PlayerV2");
                     }
                     else
                     {
-                        string datePrefix = item.Created > 0
-                            ? DateTimeOffset.FromUnixTimeSeconds(item.Created).LocalDateTime.ToString("yyyy.MM.dd") + "_"
-                            : string.Empty;
-                        var files = new List<string>();
-                        foreach (var sub in chineseSubs)
+                        var subRips = Core.BiliApi.VideoStream.VideoStream.GetSubtitle(aid, item.Bvid, cid);
+                        int subCount = subRips?.Count ?? -1;
+                        // 仅保留中文字幕（zh-CN / zh-Hans / zh-Hant / ai-zh 等）
+                        var chineseSubs = subRips == null
+                            ? null
+                            : subRips.FindAll(s => !string.IsNullOrEmpty(s.Lan) && s.Lan.IndexOf("zh", StringComparison.OrdinalIgnoreCase) >= 0);
+                        int chineseCount = chineseSubs?.Count ?? 0;
+                        LogManager.Debug(Tag, $"[{i + 1}/{total}] 字幕条数 {subCount} 中文 {chineseCount}");
+
+                        if (chineseSubs == null || chineseSubs.Count == 0)
                         {
-                            string fileName = Format.FormatFileName($"{datePrefix}{item.Title}_{sub.LanDoc}") + ".srt";
-                            string fullPath = Path.Combine(OutputDirectory, fileName);
-                            File.WriteAllText(fullPath, sub.SrtString);
-                            files.Add(fileName);
-                            LogManager.Debug(Tag, $"[{i + 1}/{total}] 写入 {fileName}");
+                            item.Status = "no_subtitle";
+                            item.Files = null;
+                            item.Error = null;
                         }
-                        item.Files = files;
-                        item.Status = "done";
-                        item.Error = null;
+                        else
+                        {
+                            string datePrefix = item.Created > 0
+                                ? DateTimeOffset.FromUnixTimeSeconds(item.Created).LocalDateTime.ToString("yyyy.MM.dd") + "_"
+                                : string.Empty;
+                            var files = new List<string>();
+                            foreach (var sub in chineseSubs)
+                            {
+                                string fileName = Format.FormatFileName($"{datePrefix}{item.Title}_{sub.LanDoc}") + ".srt";
+                                string fullPath = Path.Combine(OutputDirectory, fileName);
+                                File.WriteAllText(fullPath, sub.SrtString);
+                                files.Add(fileName);
+                                LogManager.Debug(Tag, $"[{i + 1}/{total}] 写入 {fileName}");
+                            }
+                            item.Files = files;
+                            item.Status = "done";
+                            item.Error = null;
+                        }
                     }
                 }
                 catch (Exception e)
