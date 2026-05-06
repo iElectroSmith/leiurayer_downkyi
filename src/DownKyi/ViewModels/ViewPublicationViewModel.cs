@@ -312,7 +312,7 @@ namespace DownKyi.ViewModels
                 { "totalCount", totalCount }
             };
 
-            dialogService.ShowDialog(ViewSubtitleBatchDownloadViewModel.Tag, parameters, null);
+            dialogService.Show(ViewSubtitleBatchDownloadViewModel.Tag, parameters, null);
         }
 
         #endregion

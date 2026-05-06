@@ -9,9 +9,10 @@
         <Style TargetType="Window">
             <Setter Property="prism:Dialog.WindowStartupLocation" Value="CenterOwner" />
             <Setter Property="ResizeMode" Value="NoResize" />
-            <Setter Property="ShowInTaskbar" Value="False" />
+            <Setter Property="ShowInTaskbar" Value="True" />
             <Setter Property="SizeToContent" Value="WidthAndHeight" />
             <Setter Property="WindowStyle" Value="None" />
+            <Setter Property="Topmost" Value="False" />
         </Style>
     </prism:Dialog.WindowStyle>
 
@@ -26,7 +27,8 @@
             <Grid
                 Grid.Row="0"
                 Background="{DynamicResource BrushBackgroundGreyTranslucent3}"
-                KeyboardNavigation.TabNavigation="None">
+                KeyboardNavigation.TabNavigation="None"
+                MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition />
                     <ColumnDefinition Width="50" />

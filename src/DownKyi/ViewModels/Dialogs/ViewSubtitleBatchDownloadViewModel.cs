@@ -281,6 +281,15 @@ namespace DownKyi.ViewModels.Dialogs
                             Total = TotalCount
                         };
                     }
+                    else
+                    {
+                        // 续传：把"最近一次跑的分类"同步到 manifest（增量下载 manifest 跨分类汇总，
+                        // 这些字段只记录最后一次的入口）
+                        currentManifest.UpName = UpName;
+                        currentManifest.TabId = TabId;
+                        currentManifest.TabName = TabName;
+                        currentManifest.Total = TotalCount;
+                    }
 
                     // 2. 拉列表并按 bvid 增量合并（已有跳过、新条目 append 为 pending）
                     FetchAndMergePublicationList(currentManifest, token);
@@ -315,8 +324,8 @@ namespace DownKyi.ViewModels.Dialogs
         /// <summary>
         /// 探测 OutputDirectory 下的 manifest：
         /// - 不存在：清空续传状态，按"开始"模式
-        /// - 存在且 mid+tabId 匹配：进入续传模式（按钮文字"继续"，提示行可见，统计/进度同步到已落盘状态）
-        /// - 存在但 mid+tabId 不匹配：弹错误并禁用开始按钮（用户需重选目录）
+        /// - 存在且 mid 匹配：进入续传模式（不分 tabId，做增量——同一 UP 主所有分类共享 manifest）
+        /// - 存在但 mid 不匹配：弹错误（用户手动选错目录的情况）
         /// </summary>
         private void ProbeManifest()
         {
@@ -351,10 +360,10 @@ namespace DownKyi.ViewModels.Dialogs
                 return;
             }
 
-            // 校验任务身份
-            if (loaded.Mid != Mid || loaded.TabId != TabId)
+            // 校验 UP 主身份（增量下载只看 mid，分类可以混跑）
+            if (loaded.Mid != Mid)
             {
-                LogManager.Debug(Tag, $"目录不匹配 manifest.mid={loaded.Mid} tabId={loaded.TabId} vs 当前 mid={Mid} tabId={TabId}");
+                LogManager.Debug(Tag, $"目录不匹配 manifest.mid={loaded.Mid} vs 当前 mid={Mid}");
                 CanStart = false;
                 ResumeHint = DictionaryResource.GetString("SubtitleBatchDirMismatch");
                 ResumeHintVisibility = Visibility.Visible;
@@ -504,56 +513,85 @@ namespace DownKyi.ViewModels.Dialogs
                     long cid = view.Pages[0].Cid;
                     LogManager.Debug(Tag, $"[{i + 1}/{total}] 视频信息 aid={aid} cid={cid}");
 
-                    // 预筛：view.Subtitle.List 直接告诉我们字幕清单（含 lan 字段，但 url 对未登录态可能为空）
-                    // 没中文条目 → 直接标 no_subtitle，省掉一次 PlayerV2 调用
-                    var viewSubList = view.Subtitle?.List;
-                    int viewSubCount = viewSubList?.Count ?? 0;
-                    bool hasZhInView = viewSubList != null && viewSubList.Exists(s =>
-                        !string.IsNullOrEmpty(s.Lan) && s.Lan.IndexOf("zh", StringComparison.OrdinalIgnoreCase) >= 0);
-                    LogManager.Debug(Tag, $"[{i + 1}/{total}] view.subtitle 列表 {viewSubCount} 含中文={hasZhInView}");
-
-                    if (!hasZhInView)
+                    // 注意：不能用 view.Subtitle.List 做预筛——B 站 view 接口 subtitle.list 经常为空，
+                    // 即使视频实际有字幕。可靠来源是 PlayerV2 接口（GetSubtitle 内部走的就是它）。
+                    var subRips = Core.BiliApi.VideoStream.VideoStream.GetSubtitle(aid, item.Bvid, cid);
+                    int subCount = subRips?.Count ?? -1;
+                    // 拉空时延迟重试 1 次：B 站对密集 PlayerV2 调用偶发返回空 subtitles，
+                    // 同 BV 用项目原有"下载选中项+字幕"流程能拉到说明视频实际有字幕，等几秒再请求即可恢复。
+                    if (subCount <= 0 && !token.IsCancellationRequested)
                     {
+                        LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 第一次拉空，2s 后重试");
+                        try { Task.Delay(2000, token).Wait(token); }
+                        catch (OperationCanceledException) { throw; }
+                        subRips = Core.BiliApi.VideoStream.VideoStream.GetSubtitle(aid, item.Bvid, cid);
+                        subCount = subRips?.Count ?? -1;
+                        LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 重试结果 字幕条数={subCount}");
+                    }
+                    // 把所有语言列出来，方便诊断
+                    string allLans = subRips == null
+                        ? "<null>"
+                        : (subRips.Count == 0 ? "<empty>" : string.Join(",", subRips.ConvertAll(s => $"{s.Lan}|{s.LanDoc}")));
+                    // 仅保留中文字幕（zh-CN / zh-Hans / zh-Hant / ai-zh 等）
+                    var chineseSubs = subRips == null
+                        ? null
+                        : subRips.FindAll(s => !string.IsNullOrEmpty(s.Lan) && s.Lan.IndexOf("zh", StringComparison.OrdinalIgnoreCase) >= 0);
+                    int chineseCount = chineseSubs?.Count ?? 0;
+                    LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 字幕条数={subCount} 中文={chineseCount} 全部Lan=[{allLans}]");
+
+                    if (chineseSubs == null || chineseSubs.Count == 0)
+                    {
+                        // 没拉到中文 → 单独探一次 PlayerV2，区分 "API 失败" / "Subtitle 节点为空" / "Subtitles 列表为空" / "确实非中文"
+                        try
+                        {
+                            var probe = Core.BiliApi.VideoStream.VideoStream.PlayerV2(aid, item.Bvid, cid);
+                            if (probe == null)
+                            {
+                                LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 探测：PlayerV2 返回 null（API 失败/风控）");
+                            }
+                            else if (probe.Subtitle == null)
+                            {
+                                LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 探测：player.Subtitle == null");
+                            }
+                            else if (probe.Subtitle.Subtitles == null)
+                            {
+                                LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 探测：player.Subtitle.Subtitles == null");
+                            }
+                            else
+                            {
+                                LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 探测：Subtitles.Count={probe.Subtitle.Subtitles.Count}");
+                                foreach (var s in probe.Subtitle.Subtitles)
+                                {
+                                    LogManager.Debug(Tag, $"  Lan={s.Lan} LanDoc={s.LanDoc} Url={s.SubtitleUrl}");
+                                }
+                            }
+                        }
+                        catch (Exception probeEx)
+                        {
+                            LogManager.Error(Tag, probeEx);
+                        }
+
                         item.Status = "no_subtitle";
                         item.Files = null;
                         item.Error = null;
-                        LogManager.Debug(Tag, $"[{i + 1}/{total}] 预筛跳过 PlayerV2");
                     }
                     else
                     {
-                        var subRips = Core.BiliApi.VideoStream.VideoStream.GetSubtitle(aid, item.Bvid, cid);
-                        int subCount = subRips?.Count ?? -1;
-                        // 仅保留中文字幕（zh-CN / zh-Hans / zh-Hant / ai-zh 等）
-                        var chineseSubs = subRips == null
-                            ? null
-                            : subRips.FindAll(s => !string.IsNullOrEmpty(s.Lan) && s.Lan.IndexOf("zh", StringComparison.OrdinalIgnoreCase) >= 0);
-                        int chineseCount = chineseSubs?.Count ?? 0;
-                        LogManager.Debug(Tag, $"[{i + 1}/{total}] 字幕条数 {subCount} 中文 {chineseCount}");
-
-                        if (chineseSubs == null || chineseSubs.Count == 0)
+                        string datePrefix = item.Created > 0
+                            ? DateTimeOffset.FromUnixTimeSeconds(item.Created).LocalDateTime.ToString("yyyy.MM.dd") + "_"
+                            : string.Empty;
+                        var files = new List<string>();
+                        foreach (var sub in chineseSubs)
                         {
-                            item.Status = "no_subtitle";
-                            item.Files = null;
-                            item.Error = null;
+                            string fileName = Format.FormatFileName($"{datePrefix}{item.Title}_{sub.LanDoc}") + ".srt";
+                            string fullPath = Path.Combine(OutputDirectory, fileName);
+                            File.WriteAllText(fullPath, sub.SrtString);
+                            files.Add(fileName);
+                            LogManager.Debug(Tag, $"[{i + 1}/{total}] 写入 {fileName}");
                         }
-                        else
-                        {
-                            string datePrefix = item.Created > 0
-                                ? DateTimeOffset.FromUnixTimeSeconds(item.Created).LocalDateTime.ToString("yyyy.MM.dd") + "_"
-                                : string.Empty;
-                            var files = new List<string>();
-                            foreach (var sub in chineseSubs)
-                            {
-                                string fileName = Format.FormatFileName($"{datePrefix}{item.Title}_{sub.LanDoc}") + ".srt";
-                                string fullPath = Path.Combine(OutputDirectory, fileName);
-                                File.WriteAllText(fullPath, sub.SrtString);
-                                files.Add(fileName);
-                                LogManager.Debug(Tag, $"[{i + 1}/{total}] 写入 {fileName}");
-                            }
-                            item.Files = files;
-                            item.Status = "done";
-                            item.Error = null;
-                        }
+                        item.Files = files;
+                        item.Status = "done";
+                        item.Error = null;
                     }
                 }
                 catch (Exception e)
@@ -746,6 +784,13 @@ namespace DownKyi.ViewModels.Dialogs
             ProbeManifest();
         }
 
+        public override void OnDialogClosed()
+        {
+            base.OnDialogClosed();
+            // 关闭对话框时取消后台任务，避免窗口关了循环还在跑
+            try { tokenSource?.Cancel(); } catch { }
+        }
+
         private void RefreshTargetDisplay()
         {
             string upPart = string.IsNullOrEmpty(UpName) ? $"{Mid}" : $"{Mid}_{UpName}";
@@ -753,7 +798,8 @@ namespace DownKyi.ViewModels.Dialogs
         }
 
         /// <summary>
-        /// 工作目录约定：{默认下载根}\{mid}_{upName}\，无 upName 时退回 {mid}\
+        /// 工作目录约定：{默认下载根}\{mid}_{upName}\
+        /// 同一 UP 主所有分类共用一个目录 + 一个 manifest，做增量下载（已下过的跳过、新出现的追加）。
         /// </summary>
         private string ComputeWorkingDirectory()
         {
