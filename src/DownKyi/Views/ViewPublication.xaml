@@ -45,17 +45,28 @@
                                     IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                     Style="{StaticResource CheckBoxStyle}" />
 
-                                <!--  已下载标记：绿色实心圆点  -->
-                                <Ellipse
-                                    Name="nameDownloadedDot"
+                                <!--  状态点：绿=字幕已下载，蓝=音视频已下载  -->
+                                <StackPanel
                                     Grid.Column="1"
-                                    Width="10"
-                                    Height="10"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    Fill="#4CAF50"
-                                    ToolTip="已下载"
-                                    Visibility="Collapsed" />
+                                    Orientation="Horizontal">
+                                    <Ellipse
+                                        Name="nameSubtitleDot"
+                                        Width="8"
+                                        Height="8"
+                                        Margin="0,0,3,0"
+                                        Fill="#4CAF50"
+                                        ToolTip="字幕已下载"
+                                        Visibility="Collapsed" />
+                                    <Ellipse
+                                        Name="nameVideoDot"
+                                        Width="8"
+                                        Height="8"
+                                        Fill="#2196F3"
+                                        ToolTip="音视频已下载"
+                                        Visibility="Collapsed" />
+                                </StackPanel>
 
                                 <TextBlock
                                     Grid.Column="2"
@@ -110,7 +121,10 @@
                                 <Setter TargetName="nameTitle" Property="Foreground" Value="{DynamicResource BrushPrimary}" />
                             </Trigger>
                             <DataTrigger Binding="{Binding IsDownloaded}" Value="True">
-                                <Setter TargetName="nameDownloadedDot" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="nameSubtitleDot" Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsVideoDownloaded}" Value="True">
+                                <Setter TargetName="nameVideoDot" Property="Visibility" Value="Visible" />
                                 <Setter TargetName="nameTitle" Property="Foreground" Value="{DynamicResource BrushTextGrey}" />
                             </DataTrigger>
                         </ControlTemplate.Triggers>
@@ -330,23 +344,33 @@
 
                 <Grid Grid.Row="4">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="200" />
                         <ColumnDefinition />
                         <ColumnDefinition Width="110" />
                         <ColumnDefinition Width="100" />
                         <ColumnDefinition Width="80" />
                     </Grid.ColumnDefinitions>
 
-                    <CheckBox
+                    <StackPanel
                         Grid.Column="0"
                         Margin="10,0,0,0"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
-                        Command="{Binding SelectAllCommand}"
-                        Content="{DynamicResource SelectAll}"
-                        Foreground="{DynamicResource BrushTextDark}"
-                        IsChecked="{Binding IsSelectAll, Mode=TwoWay}"
-                        Style="{StaticResource CheckBoxStyle}" />
+                        Orientation="Horizontal">
+                        <CheckBox
+                            VerticalAlignment="Center"
+                            Command="{Binding SelectAllCommand}"
+                            Content="{DynamicResource SelectAll}"
+                            Foreground="{DynamicResource BrushTextDark}"
+                            IsChecked="{Binding IsSelectAll, Mode=TwoWay}"
+                            Style="{StaticResource CheckBoxStyle}" />
+                        <TextBlock
+                            Margin="10,0,0,0"
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Foreground="{DynamicResource BrushTextGrey}"
+                            Text="{Binding UndownloadedCountText}" />
+                    </StackPanel>
 
                     <custom:CustomPager
                         Grid.Column="1"

@@ -248,6 +248,9 @@ namespace DownKyi.Services.Download
                 return null;
             }
 
+            // 仅保留中文字幕（zh-CN / zh-Hans / zh-Hant / ai-zh 等）
+            subRipTexts = subRipTexts.FindAll(s => !string.IsNullOrEmpty(s.Lan) && s.Lan.IndexOf("zh", StringComparison.OrdinalIgnoreCase) >= 0);
+
             foreach (var subRip in subRipTexts)
             {
                 string srtFile = $"{downloading.DownloadBase.FilePath}_{subRip.LanDoc}.srt";

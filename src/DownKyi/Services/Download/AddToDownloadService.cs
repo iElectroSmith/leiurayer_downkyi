@@ -39,6 +39,10 @@ namespace DownKyi.Services.Download
         private bool downloadSubtitle = true;
         private bool downloadCover = true;
 
+        // 本批次遇到"已下载视频"的统一决策（首次询问后保留，后续相同情况自动按此选择处理）。
+        // 字段在实例生命周期内有效，调用方在每次"批量下载操作"前 new 一个新实例自然就是"本批次"作用域。
+        private ButtonResult? alreadyDownloadedDecision = null;
+
         /// <summary>
         /// 添加下载
         /// </summary>
@@ -280,8 +284,21 @@ namespace DownKyi.Services.Download
                             //eventAggregator.GetEvent<MessageEvent>().Publish($"{page.Name}{DictionaryResource.GetString("TipAlreadyToAddDownloaded")}");
                             //isDownloaded = true;
 
-                            AlertService alertService = new AlertService(dialogService);
-                            ButtonResult result = alertService.ShowInfo(DictionaryResource.GetString("TipAlreadyToAddDownloaded2"));
+                            // 第一次询问后，本次后续遇到"已下载"自动按相同选择处理，不再弹窗
+                            ButtonResult result;
+                            if (alreadyDownloadedDecision.HasValue)
+                            {
+                                result = alreadyDownloadedDecision.Value;
+                            }
+                            else
+                            {
+                                AlertService alertService = new AlertService(dialogService);
+                                string msg = DictionaryResource.GetString("TipAlreadyToAddDownloaded2")
+                                    + "\n（此选择将应用到本次所有已下载的视频）";
+                                result = alertService.ShowInfo(msg);
+                                alreadyDownloadedDecision = result;
+                            }
+
                             if (result == ButtonResult.OK)
                             {
                                 App.PropertyChangeAsync(() =>

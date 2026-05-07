@@ -1,5 +1,7 @@
 ﻿using DownKyi.Core.BiliApi.VideoStream;
 using DownKyi.Core.Logging;
+using DownKyi.Core.Settings;
+using DownKyi.Core.Storage;
 using DownKyi.Core.Utils;
 using DownKyi.CustomControl;
 using DownKyi.Events;
@@ -122,6 +124,14 @@ namespace DownKyi.ViewModels
             set => SetProperty(ref isSelectAll, value);
         }
 
+        // 当前页"还有 N 个未下载"label，全部已下载时为空字符串
+        private string undownloadedCountText;
+        public string UndownloadedCountText
+        {
+            get => undownloadedCountText;
+            set => SetProperty(ref undownloadedCountText, value);
+        }
+
         #endregion
 
         public ViewPublicationViewModel(IEventAggregator eventAggregator, IDialogService dialogService) : base(eventAggregator)
@@ -147,6 +157,8 @@ namespace DownKyi.ViewModels
 
             TabHeaders = new ObservableCollection<TabHeader>();
             Medias = new ObservableCollection<PublicationMedia>();
+            // 当前页"还有 N 个未下载"实时统计
+            Medias.CollectionChanged += (_, __) => RefreshUndownloadedCount();
 
             #endregion
         }
@@ -239,8 +251,8 @@ namespace DownKyi.ViewModels
                 bool target = IsSelectAll;
                 foreach (var item in Medias)
                 {
-                    // 全选时跳过已下载项（避免重复下载）；取消全选时仍清掉所有勾选
-                    if (target && item.IsDownloaded) { continue; }
+                    // 全选时跳过已下载项（绿点字幕 / 蓝点视频任一为真都跳过，只勾未下载的）；取消全选时仍清掉所有勾选
+                    if (target && (item.IsVideoDownloaded || item.IsDownloaded)) { continue; }
                     item.IsSelected = target;
                 }
             }
@@ -261,8 +273,18 @@ namespace DownKyi.ViewModels
             if (isBatchUpdatingSelection) { return; }
             if (e.PropertyName != nameof(PublicationMedia.IsSelected)) { return; }
 
-            var selectable = Medias.Where(m => !m.IsDownloaded).ToList();
+            var selectable = Medias.Where(m => !m.IsVideoDownloaded && !m.IsDownloaded).ToList();
             IsSelectAll = selectable.Count > 0 && selectable.All(m => m.IsSelected);
+        }
+
+        /// <summary>
+        /// 刷新"还有 N 个未下载"label 文本。Medias 变化时由 CollectionChanged 触发。
+        /// 全部都有点（字幕或视频）时返回空字符串，让 UI 隐藏 label。
+        /// </summary>
+        private void RefreshUndownloadedCount()
+        {
+            int count = Medias.Count(m => !m.IsVideoDownloaded && !m.IsDownloaded);
+            UndownloadedCountText = count > 0 ? $"还有 {count} 个未下载" : string.Empty;
         }
 
         // 添加选中项到下载列表事件
@@ -425,8 +447,34 @@ namespace DownKyi.ViewModels
                 int indexBase = (current - 1) * VideoNumberInPage;
                 int offset = 0;
 
-                // 已下载视频的 Bvid 集合，用于在投稿列表中标记"已下载"
-                var downloadedBvids = new HashSet<string>(
+                // 字幕已下载（绿点）：来自批量字幕 manifest status=done
+                var subtitleBvids = new HashSet<string>();
+                try
+                {
+                    string root = SettingsManager.GetInstance().GetSaveVideoRootPath();
+                    string folderName = string.IsNullOrEmpty(upName)
+                        ? mid.ToString()
+                        : $"{mid}_{Format.FormatFileName(upName)}";
+                    string subtitleDir = System.IO.Path.Combine(root, folderName);
+                    var subtitleManifest = SubtitleBatchManifestStore.Load(subtitleDir);
+                    if (subtitleManifest?.Items != null)
+                    {
+                        foreach (var it in subtitleManifest.Items)
+                        {
+                            if (it.Status == "done" && !string.IsNullOrEmpty(it.Bvid))
+                            {
+                                subtitleBvids.Add(it.Bvid);
+                            }
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    LogManager.Error(Tag, e);
+                }
+
+                // 音视频已下载（蓝点）：来自项目原有 DownloadedList
+                var videoBvids = new HashSet<string>(
                     App.DownloadedList?
                         .Select(d => d.DownloadBase?.Bvid)
                         .Where(b => !string.IsNullOrEmpty(b))
@@ -452,7 +500,8 @@ namespace DownKyi.ViewModels
                     int displayIndex = indexBase + offset + 1;
                     offset++;
 
-                    bool isDownloaded = !string.IsNullOrEmpty(video.Bvid) && downloadedBvids.Contains(video.Bvid);
+                    bool hasSubtitle = !string.IsNullOrEmpty(video.Bvid) && subtitleBvids.Contains(video.Bvid);
+                    bool hasVideo = !string.IsNullOrEmpty(video.Bvid) && videoBvids.Contains(video.Bvid);
 
                     App.PropertyChangeAsync(new Action(() =>
                     {
@@ -465,7 +514,8 @@ namespace DownKyi.ViewModels
                             Title = video.Title,
                             PlayNumber = play,
                             CreateTime = ctime,
-                            IsDownloaded = isDownloaded
+                            IsDownloaded = hasSubtitle,
+                            IsVideoDownloaded = hasVideo
                         };
                         media.PropertyChanged += OnMediaPropertyChanged;
                         medias.Add(media);

@@ -35,11 +35,20 @@ namespace DownKyi.ViewModels.PageViewModels
             set => SetProperty(ref isSelected, value);
         }
 
+        // IsDownloaded 语义在投稿视频页表示"字幕已下载"（来自批量字幕 manifest）
         private bool isDownloaded;
         public bool IsDownloaded
         {
             get => isDownloaded;
             set => SetProperty(ref isDownloaded, value);
+        }
+
+        // 项目原有"音视频已下载"（来自 App.DownloadedList）
+        private bool isVideoDownloaded;
+        public bool IsVideoDownloaded
+        {
+            get => isVideoDownloaded;
+            set => SetProperty(ref isVideoDownloaded, value);
         }
 
         private BitmapImage cover;

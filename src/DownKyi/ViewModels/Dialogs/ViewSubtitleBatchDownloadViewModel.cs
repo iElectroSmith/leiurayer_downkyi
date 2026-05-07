@@ -583,7 +583,7 @@ namespace DownKyi.ViewModels.Dialogs
                         var files = new List<string>();
                         foreach (var sub in chineseSubs)
                         {
-                            string fileName = Format.FormatFileName($"{datePrefix}{item.Title}_{sub.LanDoc}") + ".srt";
+                            string fileName = Format.FormatFileName($"{datePrefix}{item.Bvid}_{item.Title}_{sub.LanDoc}") + ".srt";
                             string fullPath = Path.Combine(OutputDirectory, fileName);
                             File.WriteAllText(fullPath, sub.SrtString);
                             files.Add(fileName);
@@ -632,7 +632,7 @@ namespace DownKyi.ViewModels.Dialogs
 
         /// <summary>
         /// 弹完成报告（已完成 / 已停止），显示 4 个统计计数。
-        /// 在循环线程上调用；AlertService 内部会 Dispatcher.Invoke 切到 UI 线程。
+        /// 后台循环线程调用；用 Dispatcher.BeginInvoke 异步派发，避免阻塞后台线程同步等待 UI 线程模态对话框关闭。
         /// </summary>
         private void ShowCompletionReport(bool stopped)
         {
@@ -642,17 +642,30 @@ namespace DownKyi.ViewModels.Dialogs
             sb.AppendLine($"{DictionaryResource.GetString("SubtitleBatchStatusNoSub")}: {CountNoSub}");
             sb.AppendLine($"{DictionaryResource.GetString("SubtitleBatchStatusFailed")}: {CountFailed}");
             sb.Append($"{DictionaryResource.GetString("SubtitleBatchStatusPending")}: {CountPending}");
+            string message = sb.ToString();
 
-            try
+            if (dialogService == null) { return; }
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher == null) { return; }
+
+            dispatcher.BeginInvoke(new Action(() =>
             {
-                if (dialogService == null) { return; }
-                var alert = new AlertService(dialogService);
-                alert.ShowMessage(Images.SystemIcon.Instance().Info, title, sb.ToString(), 1);
-            }
-            catch (Exception e)
-            {
-                LogManager.Error(Tag, e);
-            }
+                try
+                {
+                    var param = new DialogParameters
+                    {
+                        { "image", Images.SystemIcon.Instance().Info },
+                        { "title", title },
+                        { "message", message },
+                        { "button_number", 1 }
+                    };
+                    dialogService.ShowDialog(ViewAlertDialogViewModel.Tag, param, _ => { });
+                }
+                catch (Exception e)
+                {
+                    LogManager.Error(Tag, e);
+                }
+            }));
         }
 
         private enum AlertKind { Info, Warning, Error }
