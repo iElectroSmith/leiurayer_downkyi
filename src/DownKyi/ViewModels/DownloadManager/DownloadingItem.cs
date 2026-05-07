@@ -213,17 +213,10 @@ namespace DownKyi.ViewModels.DownloadManager
         public DelegateCommand DeleteCommand => deleteCommand ?? (deleteCommand = new DelegateCommand(ExecuteDeleteCommand));
 
         /// <summary>
-        /// 下载列表删除事件
+        /// 下载列表删除事件（单条删除直接执行，不再二次确认；批量删除仍保留确认）
         /// </summary>
         private void ExecuteDeleteCommand()
         {
-            AlertService alertService = new AlertService(DialogService);
-            ButtonResult result = alertService.ShowWarning(DictionaryResource.GetString("ConfirmDelete"), 2);
-            if (result != ButtonResult.OK)
-            {
-                return;
-            }
-
             App.DownloadingList.Remove(this);
         }
 

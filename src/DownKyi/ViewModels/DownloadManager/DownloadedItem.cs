@@ -150,17 +150,10 @@ namespace DownKyi.ViewModels.DownloadManager
         public DelegateCommand RemoveVideoCommand => removeVideoCommand ?? (removeVideoCommand = new DelegateCommand(ExecuteRemoveVideoCommand));
 
         /// <summary>
-        /// 删除事件
+        /// 删除事件（单条删除直接执行，不再二次确认；批量清空仍保留确认）
         /// </summary>
         private void ExecuteRemoveVideoCommand()
         {
-            AlertService alertService = new AlertService(DialogService);
-            ButtonResult result = alertService.ShowWarning(DictionaryResource.GetString("ConfirmDelete"), 2);
-            if (result != ButtonResult.OK)
-            {
-                return;
-            }
-
             App.DownloadedList.Remove(this);
         }
 
