@@ -260,13 +260,53 @@ namespace DownKyi.ViewModels.Friends
             InnerContentVisibility = Visibility.Visible;
             ContentLoadingVisibility = Visibility.Collapsed;
             ContentNoDataVisibility = Visibility.Collapsed;
+
+            // 一次性加载下载历史索引，按 mid 索引到字典加快查找
+            var indexMap = new Dictionary<long, UpDownloadIndexEntry>();
+            try
+            {
+                var idx = UpDownloadIndexStore.Load();
+                if (idx?.Items != null)
+                {
+                    foreach (var entry in idx.Items)
+                    {
+                        if (entry != null && entry.Mid > 0) { indexMap[entry.Mid] = entry; }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                DownKyi.Core.Logging.LogManager.Error(Tag, e);
+            }
+
             foreach (var item in contents)
             {
                 StorageHeader storageHeader = new StorageHeader();
                 BitmapImage header = storageHeader.GetHeaderThumbnail(item.Mid, item.Name, item.Face, 64, 64);
+
+                DateTime? lastTime = null;
+                int doneCount = 0;
+                if (indexMap.TryGetValue(item.Mid, out var entry) && entry != null)
+                {
+                    doneCount = entry.DoneCount;
+                    if (!string.IsNullOrEmpty(entry.LastUpdate)
+                        && DateTime.TryParse(entry.LastUpdate, out var dt))
+                    {
+                        lastTime = dt;
+                    }
+                }
+
                 App.PropertyChangeAsync(new Action(() =>
                 {
-                    Contents.Add(new FriendInfo(eventAggregator) { Mid = item.Mid, Header = header, Name = item.Name, Sign = item.Sign });
+                    Contents.Add(new FriendInfo(eventAggregator)
+                    {
+                        Mid = item.Mid,
+                        Header = header,
+                        Name = item.Name,
+                        Sign = item.Sign,
+                        LastDownloadTime = lastTime,
+                        DownloadedCount = doneCount
+                    });
                 }));
             }
         }

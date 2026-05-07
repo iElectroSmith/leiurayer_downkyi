@@ -48,15 +48,42 @@
                                     <RowDefinition Height="40" />
                                     <RowDefinition />
                                 </Grid.RowDefinitions>
-                                <TextBlock
+                                <!--  Row 0：名字 + 下载历史徽章 + 数量  -->
+                                <StackPanel
                                     Grid.Row="0"
-                                    HorizontalAlignment="Left"
                                     VerticalAlignment="Center"
-                                    FontSize="14"
-                                    Foreground="{DynamicResource BrushTextDark}"
-                                    Text="{Binding Name}"
-                                    TextTrimming="CharacterEllipsis"
-                                    TextWrapping="WrapWithOverflow" />
+                                    Orientation="Horizontal">
+                                    <Ellipse
+                                        Width="8"
+                                        Height="8"
+                                        Margin="0,0,5,0"
+                                        VerticalAlignment="Center"
+                                        Fill="{Binding DownloadBadgeBrush}"
+                                        ToolTip="{Binding LastDownloadTime}">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasDownloadHistory}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="14"
+                                        Foreground="{DynamicResource BrushTextDark}"
+                                        Text="{Binding Name}"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        Margin="8,0,0,0"
+                                        VerticalAlignment="Center"
+                                        FontSize="11"
+                                        Foreground="{DynamicResource BrushTextGrey}"
+                                        Text="{Binding DownloadCountText}" />
+                                </StackPanel>
                                 <TextBlock
                                     Grid.Row="1"
                                     HorizontalAlignment="Left"

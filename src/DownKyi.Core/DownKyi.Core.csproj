@@ -342,6 +342,7 @@
     <Compile Include="Storage\StorageManager.cs" />
     <Compile Include="Storage\StorageUtils.cs" />
     <Compile Include="Storage\SubtitleBatchManifest.cs" />
+    <Compile Include="Storage\UpDownloadIndex.cs" />
     <Compile Include="Utils\Debugging\Console.cs" />
     <Compile Include="Utils\Encryptor\Encryptor.File.cs" />
     <Compile Include="Utils\Encryptor\Encryptor.String.cs" />

@@ -65,6 +65,26 @@ namespace DownKyi
             DownloadingList.AddRange(downloadingItems);
             DownloadedList.AddRange(downloadedItems);
 
+            // 首次启动检测：UP 主下载历史聚合索引不存在则后台扫描下载根目录构建。
+            // 索引文件位于程序根目录，跟用户配置的下载根目录解耦——改下载目录历史依然保留。
+            // 用户手动删除索引文件（{程序根}\Storage\up_download_index.json）也会触发重扫。
+            Task.Run(() =>
+            {
+                try
+                {
+                    string indexPath = DownKyi.Core.Storage.UpDownloadIndexStore.DefaultPath();
+                    if (System.IO.File.Exists(indexPath)) { return; }
+                    string downloadRoot = SettingsManager.GetInstance().GetSaveVideoRootPath();
+                    var idx = DownKyi.Core.Storage.UpDownloadIndexStore.BuildFromWorkingDir(downloadRoot);
+                    DownKyi.Core.Storage.UpDownloadIndexStore.Save(idx);
+                    DownKyi.Core.Logging.LogManager.Debug("UpDownloadIndex", $"首次构建索引完成，{idx.Items.Count} 个 UP 主");
+                }
+                catch (Exception e)
+                {
+                    DownKyi.Core.Logging.LogManager.Error("UpDownloadIndex", e);
+                }
+            });
+
             // 启动时不自动续传上次未完成的任务，统一标记为暂停由用户手动恢复，
             // 避免 B 站 CDN 视频流 URL 过期造成的启动 403 弹窗
             foreach (var item in DownloadingList)

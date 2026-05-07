@@ -637,6 +637,9 @@ namespace DownKyi.ViewModels.Dialogs
                 }
             }
 
+            // 同步更新 UP 主下载历史聚合索引（被取消和完成都更新，反映"最新一次操作"语义）
+            UpdateUpDownloadIndex(manifest);
+
             if (token.IsCancellationRequested)
             {
                 CurrentTitle = DictionaryResource.GetString("SubtitleBatchStopped");
@@ -648,6 +651,32 @@ namespace DownKyi.ViewModels.Dialogs
             CurrentTitle = DictionaryResource.GetString("SubtitleBatchDone");
             LogManager.Debug(Tag, $"下载循环完成 | ok={CountOk} noSub={CountNoSub} failed={CountFailed} pending={CountPending}");
             ShowCompletionReport(stopped: false);
+        }
+
+        private void UpdateUpDownloadIndex(SubtitleBatchManifest manifest)
+        {
+            if (manifest == null || manifest.Mid <= 0) { return; }
+            int doneCount = 0;
+            if (manifest.Items != null)
+            {
+                foreach (var it in manifest.Items)
+                {
+                    if (it != null && it.Status == "done") { doneCount++; }
+                }
+            }
+            try
+            {
+                UpDownloadIndexStore.Upsert(
+                    manifest.Mid,
+                    manifest.UpName ?? string.Empty,
+                    manifest.UpdatedAt ?? DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    doneCount,
+                    manifest.Items?.Count ?? 0);
+            }
+            catch (Exception e)
+            {
+                LogManager.Error(Tag, e);
+            }
         }
 
         /// <summary>
