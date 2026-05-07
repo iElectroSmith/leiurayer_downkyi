@@ -14,12 +14,12 @@
                     <ControlTemplate TargetType="{x:Type ListBoxItem}">
                         <Grid
                             Name="nameUserPanel"
-                            Width="400"
-                            Height="80"
-                            Margin="15,15,10,5"
+                            Width="320"
+                            Height="56"
+                            Margin="6,6,4,4"
                             Cursor="Hand">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="56" />
                                 <ColumnDefinition />
                             </Grid.ColumnDefinitions>
                             <i:Interaction.Triggers>
@@ -30,40 +30,39 @@
 
                             <Image
                                 Grid.Column="0"
-                                Width="64"
-                                Height="64"
+                                Width="44"
+                                Height="44"
+                                VerticalAlignment="Center"
                                 Source="{Binding Header}">
                                 <Image.Clip>
                                     <EllipseGeometry
-                                        Center="32,32"
-                                        RadiusX="32"
-                                        RadiusY="32" />
+                                        Center="22,22"
+                                        RadiusX="22"
+                                        RadiusY="22" />
                                 </Image.Clip>
                             </Image>
 
-                            <Grid Grid.Column="1">
+                            <Grid Grid.Column="1" Margin="6,0,0,0">
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="40" />
-                                    <RowDefinition />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
                                 <TextBlock
                                     Grid.Row="0"
                                     HorizontalAlignment="Left"
-                                    VerticalAlignment="Center"
-                                    FontSize="14"
+                                    VerticalAlignment="Bottom"
+                                    FontSize="13"
                                     Foreground="{DynamicResource BrushTextDark}"
                                     Text="{Binding Name}"
-                                    TextTrimming="CharacterEllipsis"
-                                    TextWrapping="WrapWithOverflow" />
+                                    TextTrimming="CharacterEllipsis" />
                                 <TextBlock
                                     Grid.Row="1"
                                     HorizontalAlignment="Left"
                                     VerticalAlignment="Top"
-                                    FontSize="12"
+                                    FontSize="11"
                                     Foreground="{DynamicResource BrushTextGrey2}"
                                     Text="{Binding Sign}"
                                     TextTrimming="CharacterEllipsis"
-                                    TextWrapping="WrapWithOverflow"
                                     ToolTip="{Binding Sign}" />
                             </Grid>
                         </Grid>

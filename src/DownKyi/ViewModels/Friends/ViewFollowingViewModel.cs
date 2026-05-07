@@ -26,7 +26,7 @@ namespace DownKyi.ViewModels.Friends
         private long mid = -1;
 
         // 每页数量，暂时在此写死，以后在设置中增加选项
-        private readonly int NumberInPage = 20;
+        private readonly int NumberInPage = 50;
 
         #region 页面属性申明
 
