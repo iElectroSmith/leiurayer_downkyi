@@ -473,12 +473,20 @@ namespace DownKyi.ViewModels
                     LogManager.Error(Tag, e);
                 }
 
-                // 音视频已下载（蓝点）：来自项目原有 DownloadedList
-                var videoBvids = new HashSet<string>(
-                    App.DownloadedList?
-                        .Select(d => d.DownloadBase?.Bvid)
-                        .Where(b => !string.IsNullOrEmpty(b))
-                        ?? Enumerable.Empty<string>());
+                // 音视频已下载（蓝点）：来自项目原有 DownloadedList。
+                // 同时收集 Bvid 和 Avid——某些视频在 LiteDB 里 Bvid 字段缺失（用 AV URL 下载场景），靠 Avid 兜底匹配。
+                var videoBvids = new HashSet<string>();
+                var videoAids = new HashSet<long>();
+                if (App.DownloadedList != null)
+                {
+                    foreach (var d in App.DownloadedList)
+                    {
+                        if (d?.DownloadBase == null) { continue; }
+                        if (!string.IsNullOrEmpty(d.DownloadBase.Bvid)) { videoBvids.Add(d.DownloadBase.Bvid); }
+                        if (d.DownloadBase.Avid > 0) { videoAids.Add(d.DownloadBase.Avid); }
+                    }
+                }
+                LogManager.Debug(Tag, $"页 {current} 视频 bvid/avid 集合: 字幕完成 {subtitleBvids.Count} / 已下载Bvid {videoBvids.Count} / 已下载Avid {videoAids.Count} / DownloadedList 总条数 {App.DownloadedList?.Count ?? -1}");
 
                 foreach (var video in videos)
                 {
@@ -501,7 +509,9 @@ namespace DownKyi.ViewModels
                     offset++;
 
                     bool hasSubtitle = !string.IsNullOrEmpty(video.Bvid) && subtitleBvids.Contains(video.Bvid);
-                    bool hasVideo = !string.IsNullOrEmpty(video.Bvid) && videoBvids.Contains(video.Bvid);
+                    bool hasVideo =
+                        (!string.IsNullOrEmpty(video.Bvid) && videoBvids.Contains(video.Bvid))
+                        || (video.Aid > 0 && videoAids.Contains(video.Aid));
 
                     App.PropertyChangeAsync(new Action(() =>
                     {
