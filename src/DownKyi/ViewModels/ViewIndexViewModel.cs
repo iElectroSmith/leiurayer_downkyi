@@ -4,6 +4,7 @@ using DownKyi.Core.Logging;
 using DownKyi.Core.Settings;
 using DownKyi.Core.Settings.Models;
 using DownKyi.Core.Storage;
+using DownKyi.Events;
 using DownKyi.Images;
 using DownKyi.Services;
 using DownKyi.Utils;
@@ -198,6 +199,29 @@ namespace DownKyi.ViewModels
         private void ExecuteToolboxCommand()
         {
             NavigateToView.NavigationView(eventAggregator, ViewToolboxViewModel.Tag, Tag, null);
+        }
+
+        // 进入好友页面（关注 / 粉丝）
+        private DelegateCommand friendsCommand;
+        public DelegateCommand FriendsCommand => friendsCommand ?? (friendsCommand = new DelegateCommand(ExecuteFriendsCommand));
+
+        /// <summary>
+        /// 进入好友页面，需要登录态。未登录时给出提示并退回。
+        /// </summary>
+        private void ExecuteFriendsCommand()
+        {
+            var userInfo = SettingsManager.GetInstance().GetUserInfo();
+            if (userInfo == null || userInfo.Mid == -1)
+            {
+                eventAggregator.GetEvent<MessageEvent>().Publish(DictionaryResource.GetString("TipNotLogin"));
+                return;
+            }
+            var data = new System.Collections.Generic.Dictionary<string, object>
+            {
+                { "mid", userInfo.Mid },
+                { "friendId", 0 }
+            };
+            NavigateToView.NavigationView(eventAggregator, ViewFriendsViewModel.Tag, Tag, data);
         }
 
         #endregion
