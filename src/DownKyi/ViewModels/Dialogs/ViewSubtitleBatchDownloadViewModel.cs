@@ -510,87 +510,107 @@ namespace DownKyi.ViewModels.Dialogs
                     }
 
                     long aid = view.Aid;
-                    long cid = view.Pages[0].Cid;
-                    LogManager.Debug(Tag, $"[{i + 1}/{total}] 视频信息 aid={aid} cid={cid}");
+                    int pageCount = view.Pages.Count;
+                    bool isMultiPart = pageCount > 1;
+                    item.IsMultiPart = isMultiPart;
+                    LogManager.Debug(Tag, $"[{i + 1}/{total}] 视频信息 aid={aid} pages={pageCount}");
 
-                    // 注意：不能用 view.Subtitle.List 做预筛——B 站 view 接口 subtitle.list 经常为空，
-                    // 即使视频实际有字幕。可靠来源是 PlayerV2 接口（GetSubtitle 内部走的就是它）。
-                    var subRips = Core.BiliApi.VideoStream.VideoStream.GetSubtitle(aid, item.Bvid, cid);
-                    int subCount = subRips?.Count ?? -1;
-                    // 拉空时延迟重试 1 次：B 站对密集 PlayerV2 调用偶发返回空 subtitles，
-                    // 同 BV 用项目原有"下载选中项+字幕"流程能拉到说明视频实际有字幕，等几秒再请求即可恢复。
-                    if (subCount <= 0 && !token.IsCancellationRequested)
+                    string datePrefix = item.Created > 0
+                        ? DateTimeOffset.FromUnixTimeSeconds(item.Created).LocalDateTime.ToString("yyyy.MM.dd") + "_"
+                        : string.Empty;
+
+                    var allFiles = new List<string>();
+                    int pIndex = 0;
+                    foreach (var page in view.Pages)
                     {
-                        LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 第一次拉空，2s 后重试");
-                        try { Task.Delay(2000, token).Wait(token); }
-                        catch (OperationCanceledException) { throw; }
-                        subRips = Core.BiliApi.VideoStream.VideoStream.GetSubtitle(aid, item.Bvid, cid);
-                        subCount = subRips?.Count ?? -1;
-                        LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 重试结果 字幕条数={subCount}");
+                        if (token.IsCancellationRequested) { break; }
+                        pIndex++;
+                        long cid = page.Cid;
+
+                        // 注意：不能用 view.Subtitle.List 做预筛——B 站 view 接口 subtitle.list 经常为空，
+                        // 即使视频实际有字幕。可靠来源是 PlayerV2 接口（GetSubtitle 内部走的就是它）。
+                        var subRips = Core.BiliApi.VideoStream.VideoStream.GetSubtitle(aid, item.Bvid, cid);
+                        int subCount = subRips?.Count ?? -1;
+                        // 拉空时延迟重试 1 次：B 站对密集 PlayerV2 调用偶发返回空 subtitles。
+                        if (subCount <= 0 && !token.IsCancellationRequested)
+                        {
+                            LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} P{pIndex} 第一次拉空，2s 后重试");
+                            try { Task.Delay(2000, token).Wait(token); }
+                            catch (OperationCanceledException) { throw; }
+                            subRips = Core.BiliApi.VideoStream.VideoStream.GetSubtitle(aid, item.Bvid, cid);
+                            subCount = subRips?.Count ?? -1;
+                        }
+
+                        // 仅保留中文字幕（zh-CN / zh-Hans / zh-Hant / ai-zh 等）
+                        var chineseSubs = subRips == null
+                            ? null
+                            : subRips.FindAll(s => !string.IsNullOrEmpty(s.Lan) && s.Lan.IndexOf("zh", StringComparison.OrdinalIgnoreCase) >= 0);
+                        int chineseCount = chineseSubs?.Count ?? 0;
+                        LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} P{pIndex}/{pageCount} 字幕条数={subCount} 中文={chineseCount}");
+
+                        if (chineseSubs == null || chineseSubs.Count == 0)
+                        {
+                            continue; // 这个 P 没字幕，看下一个 P
+                        }
+
+                        // 多 P 时文件名加 P 后缀；单 P 不加，保持简洁
+                        string partSuffix = "";
+                        if (isMultiPart)
+                        {
+                            string partPiece = string.IsNullOrEmpty(page.Part) ? "" : "_" + page.Part;
+                            partSuffix = $"_P{pIndex}{partPiece}";
+                        }
+
+                        foreach (var sub in chineseSubs)
+                        {
+                            string fileName = Format.FormatFileName($"{datePrefix}{item.Bvid}_{item.Title}{partSuffix}_{sub.LanDoc}") + ".srt";
+                            string fullPath = Path.Combine(OutputDirectory, fileName);
+                            File.WriteAllText(fullPath, sub.SrtString);
+                            allFiles.Add(fileName);
+                            LogManager.Debug(Tag, $"[{i + 1}/{total}] 写入 {fileName}");
+                        }
+
+                        // P 间也限速，避免连续高频调用 PlayerV2
+                        if (pIndex < pageCount && !token.IsCancellationRequested)
+                        {
+                            try { Task.Delay(IntervalMs, token).Wait(token); }
+                            catch (OperationCanceledException) { throw; }
+                        }
                     }
-                    // 把所有语言列出来，方便诊断
-                    string allLans = subRips == null
-                        ? "<null>"
-                        : (subRips.Count == 0 ? "<empty>" : string.Join(",", subRips.ConvertAll(s => $"{s.Lan}|{s.LanDoc}")));
-                    // 仅保留中文字幕（zh-CN / zh-Hans / zh-Hant / ai-zh 等）
-                    var chineseSubs = subRips == null
-                        ? null
-                        : subRips.FindAll(s => !string.IsNullOrEmpty(s.Lan) && s.Lan.IndexOf("zh", StringComparison.OrdinalIgnoreCase) >= 0);
-                    int chineseCount = chineseSubs?.Count ?? 0;
-                    LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 字幕条数={subCount} 中文={chineseCount} 全部Lan=[{allLans}]");
 
-                    if (chineseSubs == null || chineseSubs.Count == 0)
+                    if (allFiles.Count > 0)
                     {
-                        // 没拉到中文 → 单独探一次 PlayerV2，区分 "API 失败" / "Subtitle 节点为空" / "Subtitles 列表为空" / "确实非中文"
+                        item.Files = allFiles;
+                        item.Status = "done";
+                        item.Error = null;
+                    }
+                    else
+                    {
+                        // 所有 P 都没拉到中文 → 探一次 PlayerV2 第一 P，记录原因
                         try
                         {
-                            var probe = Core.BiliApi.VideoStream.VideoStream.PlayerV2(aid, item.Bvid, cid);
+                            var probe = Core.BiliApi.VideoStream.VideoStream.PlayerV2(aid, item.Bvid, view.Pages[0].Cid);
                             if (probe == null)
                             {
-                                LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 探测：PlayerV2 返回 null（API 失败/风控）");
+                                LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 探测：PlayerV2 返回 null");
                             }
-                            else if (probe.Subtitle == null)
+                            else if (probe.Subtitle?.Subtitles == null || probe.Subtitle.Subtitles.Count == 0)
                             {
-                                LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 探测：player.Subtitle == null");
-                            }
-                            else if (probe.Subtitle.Subtitles == null)
-                            {
-                                LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 探测：player.Subtitle.Subtitles == null");
+                                LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 探测：Subtitles 为空");
                             }
                             else
                             {
                                 LogManager.Debug(Tag, $"[{i + 1}/{total}] {item.Bvid} 探测：Subtitles.Count={probe.Subtitle.Subtitles.Count}");
                                 foreach (var s in probe.Subtitle.Subtitles)
                                 {
-                                    LogManager.Debug(Tag, $"  Lan={s.Lan} LanDoc={s.LanDoc} Url={s.SubtitleUrl}");
+                                    LogManager.Debug(Tag, $"  Lan={s.Lan} LanDoc={s.LanDoc}");
                                 }
                             }
                         }
-                        catch (Exception probeEx)
-                        {
-                            LogManager.Error(Tag, probeEx);
-                        }
+                        catch (Exception probeEx) { LogManager.Error(Tag, probeEx); }
 
                         item.Status = "no_subtitle";
                         item.Files = null;
-                        item.Error = null;
-                    }
-                    else
-                    {
-                        string datePrefix = item.Created > 0
-                            ? DateTimeOffset.FromUnixTimeSeconds(item.Created).LocalDateTime.ToString("yyyy.MM.dd") + "_"
-                            : string.Empty;
-                        var files = new List<string>();
-                        foreach (var sub in chineseSubs)
-                        {
-                            string fileName = Format.FormatFileName($"{datePrefix}{item.Bvid}_{item.Title}_{sub.LanDoc}") + ".srt";
-                            string fullPath = Path.Combine(OutputDirectory, fileName);
-                            File.WriteAllText(fullPath, sub.SrtString);
-                            files.Add(fileName);
-                            LogManager.Debug(Tag, $"[{i + 1}/{total}] 写入 {fileName}");
-                        }
-                        item.Files = files;
-                        item.Status = "done";
                         item.Error = null;
                     }
                 }
@@ -632,7 +652,9 @@ namespace DownKyi.ViewModels.Dialogs
 
         /// <summary>
         /// 弹完成报告（已完成 / 已停止），显示 4 个统计计数。
-        /// 后台循环线程调用；用 Dispatcher.BeginInvoke 异步派发，避免阻塞后台线程同步等待 UI 线程模态对话框关闭。
+        /// 后台循环线程调用；用 Dispatcher.BeginInvoke 异步派发到 UI 线程。
+        /// 注意：用 WPF 原生 MessageBox.Show 而非 Prism dialogService.ShowDialog——
+        /// 后者在"非模态字幕对话框 + 模态 AlertDialog"场景下会出 Owner / 焦点死锁，已踩坑两次。
         /// </summary>
         private void ShowCompletionReport(bool stopped)
         {
@@ -644,7 +666,6 @@ namespace DownKyi.ViewModels.Dialogs
             sb.Append($"{DictionaryResource.GetString("SubtitleBatchStatusPending")}: {CountPending}");
             string message = sb.ToString();
 
-            if (dialogService == null) { return; }
             var dispatcher = System.Windows.Application.Current?.Dispatcher;
             if (dispatcher == null) { return; }
 
@@ -652,14 +673,11 @@ namespace DownKyi.ViewModels.Dialogs
             {
                 try
                 {
-                    var param = new DialogParameters
-                    {
-                        { "image", Images.SystemIcon.Instance().Info },
-                        { "title", title },
-                        { "message", message },
-                        { "button_number", 1 }
-                    };
-                    dialogService.ShowDialog(ViewAlertDialogViewModel.Tag, param, _ => { });
+                    System.Windows.MessageBox.Show(
+                        message,
+                        title,
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
                 }
                 catch (Exception e)
                 {

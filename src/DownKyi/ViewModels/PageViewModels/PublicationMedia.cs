@@ -51,6 +51,14 @@ namespace DownKyi.ViewModels.PageViewModels
             set => SetProperty(ref isVideoDownloaded, value);
         }
 
+        // 多 P 合集标记（仅当字幕 manifest 里 IsMultiPart=true 时为真，没下过的视频默认 false）
+        private bool isMultiPart;
+        public bool IsMultiPart
+        {
+            get => isMultiPart;
+            set => SetProperty(ref isMultiPart, value);
+        }
+
         private BitmapImage cover;
         public BitmapImage Cover
         {

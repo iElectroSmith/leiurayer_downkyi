@@ -75,18 +75,45 @@
                                     Foreground="{DynamicResource BrushTextGrey}"
                                     Text="{Binding Index}" />
 
-                                <TextBlock
-                                    Name="nameTitle"
+                                <StackPanel
                                     Grid.Column="3"
                                     Margin="6,0,12,0"
                                     VerticalAlignment="Center"
-                                    Cursor="Hand"
-                                    Foreground="{DynamicResource BrushTextDark}"
-                                    MouseLeftButtonDown="OnTitleMouseLeftButtonDown"
-                                    Tag="{Binding Bvid}"
-                                    Text="{Binding Title}"
-                                    TextTrimming="CharacterEllipsis"
-                                    ToolTip="{Binding Title}" />
+                                    Orientation="Horizontal">
+                                    <!--  合集徽章：仅当 IsMultiPart=true 时显示  -->
+                                    <Border
+                                        Margin="0,0,6,0"
+                                        Padding="5,1"
+                                        VerticalAlignment="Center"
+                                        Background="#FF9C27B0"
+                                        CornerRadius="3"
+                                        ToolTip="多 P 合集">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsMultiPart}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock
+                                            FontSize="10"
+                                            Foreground="White"
+                                            Text="合集" />
+                                    </Border>
+                                    <TextBlock
+                                        Name="nameTitle"
+                                        VerticalAlignment="Center"
+                                        Cursor="Hand"
+                                        Foreground="{DynamicResource BrushTextDark}"
+                                        MouseLeftButtonDown="OnTitleMouseLeftButtonDown"
+                                        Tag="{Binding Bvid}"
+                                        Text="{Binding Title}"
+                                        TextTrimming="CharacterEllipsis"
+                                        ToolTip="{Binding Title}" />
+                                </StackPanel>
 
                                 <TextBlock
                                     Grid.Column="4"

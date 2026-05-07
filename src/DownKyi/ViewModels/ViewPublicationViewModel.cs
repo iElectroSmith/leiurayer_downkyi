@@ -448,7 +448,9 @@ namespace DownKyi.ViewModels
                 int offset = 0;
 
                 // 字幕已下载（绿点）：来自批量字幕 manifest status=done
+                // 合集标记（紫色徽章）：来自 manifest IsMultiPart=true（无论下载状态都标，但需要进过批量字幕功能才有这个信息）
                 var subtitleBvids = new HashSet<string>();
+                var multiPartBvids = new HashSet<string>();
                 try
                 {
                     string root = SettingsManager.GetInstance().GetSaveVideoRootPath();
@@ -459,11 +461,21 @@ namespace DownKyi.ViewModels
                     var subtitleManifest = SubtitleBatchManifestStore.Load(subtitleDir);
                     if (subtitleManifest?.Items != null)
                     {
+                        var partRegex = new System.Text.RegularExpressions.Regex(@"_P\d+_");
                         foreach (var it in subtitleManifest.Items)
                         {
-                            if (it.Status == "done" && !string.IsNullOrEmpty(it.Bvid))
+                            if (string.IsNullOrEmpty(it.Bvid)) { continue; }
+                            if (it.Status == "done") { subtitleBvids.Add(it.Bvid); }
+                            // 主标识：manifest 里 IsMultiPart=true。
+                            // 兜底启发：旧 manifest 没这字段时，扫 Files 文件名有没有 _P\d+_ 后缀
+                            // （多 P 改造后的命名规则），有就反推是合集。
+                            if (it.IsMultiPart)
                             {
-                                subtitleBvids.Add(it.Bvid);
+                                multiPartBvids.Add(it.Bvid);
+                            }
+                            else if (it.Files != null && it.Files.Exists(f => f != null && partRegex.IsMatch(f)))
+                            {
+                                multiPartBvids.Add(it.Bvid);
                             }
                         }
                     }
@@ -486,7 +498,7 @@ namespace DownKyi.ViewModels
                         if (d.DownloadBase.Avid > 0) { videoAids.Add(d.DownloadBase.Avid); }
                     }
                 }
-                LogManager.Debug(Tag, $"页 {current} 视频 bvid/avid 集合: 字幕完成 {subtitleBvids.Count} / 已下载Bvid {videoBvids.Count} / 已下载Avid {videoAids.Count} / DownloadedList 总条数 {App.DownloadedList?.Count ?? -1}");
+                LogManager.Debug(Tag, $"页 {current} 视频 bvid/avid 集合: 字幕完成 {subtitleBvids.Count} / 合集 {multiPartBvids.Count} / 已下载Bvid {videoBvids.Count} / 已下载Avid {videoAids.Count} / DownloadedList 总条数 {App.DownloadedList?.Count ?? -1}");
 
                 foreach (var video in videos)
                 {
@@ -512,6 +524,7 @@ namespace DownKyi.ViewModels
                     bool hasVideo =
                         (!string.IsNullOrEmpty(video.Bvid) && videoBvids.Contains(video.Bvid))
                         || (video.Aid > 0 && videoAids.Contains(video.Aid));
+                    bool isMulti = !string.IsNullOrEmpty(video.Bvid) && multiPartBvids.Contains(video.Bvid);
 
                     App.PropertyChangeAsync(new Action(() =>
                     {
@@ -525,7 +538,8 @@ namespace DownKyi.ViewModels
                             PlayNumber = play,
                             CreateTime = ctime,
                             IsDownloaded = hasSubtitle,
-                            IsVideoDownloaded = hasVideo
+                            IsVideoDownloaded = hasVideo,
+                            IsMultiPart = isMulti
                         };
                         media.PropertyChanged += OnMediaPropertyChanged;
                         medias.Add(media);

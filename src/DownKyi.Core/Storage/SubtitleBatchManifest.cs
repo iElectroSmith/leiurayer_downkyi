@@ -28,6 +28,8 @@ namespace DownKyi.Core.Storage
         public string Title { get; set; }
         // 投稿时间（Unix 秒）。旧 manifest 没有此字段，反序列化为 0，下载时不加日期前缀。
         public long Created { get; set; }
+        // 是否合集（多 P）。下载时从 view.Pages.Count > 1 拿到。旧 manifest 反序列化为 false。
+        public bool IsMultiPart { get; set; }
         public List<string> Files { get; set; }
         public string Error { get; set; }
         public int Attempts { get; set; }
